@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+
+        <!-- wizard view -->
+        <record model="ir.ui.view" id="ebay_authorize_view">
+            <field name="name">ebay authentication</field>
+            <field name="model">ebay.authorize</field>
+            <field name="arch" type="xml">
+                <form string="ebay authentication" version="7.0">
+		    <separator string="Sign In to grant application access"/>
+		    <field name="sign_in_url" widget='url'/>
+		    <p class="oe_grey">
+			Sign in with your eBay user ID and password to link your account to OpenERP.
+			<br/>
+			After successful login, click OK to complete the link procedure.
+		    </p>
+		    <footer>
+			<button name="get_token" string="OK" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <act_window id="ebay_authorize"
+            multi="True"
+            key2="client_action_multi" name="eBay Authentication"
+            res_model="ebay.authorize" src_model="ebay.user"
+            view_mode="form" target="new" view_type="form" view_id="ebay_authorize_view"/>
+
+    </data>
+</openerp>
