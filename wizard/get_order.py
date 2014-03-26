@@ -119,6 +119,14 @@ class get_order(osv.TransientModel):
                 resp = ebay_ebay_obj.call(cr, uid, user, 'GetOrders', call_data, error_msg, context=context)
                 has_more_orders = resp.HasMoreOrders == 'true'
                 ebay_ebay_obj.dump_resp(cr, uid, resp)
+                orders = OrderArray.Order
+                if type(orders) != list:
+                    orders = [orders]
+                for order in orders:
+                    # finding exist customer
+                    call_data=dict()
+                    call_data['create_date'] = order.CreatedTime
+                    pass
                 page_number = page_number + 1
 
         return {'type': 'ir.actions.act_window_close'}
