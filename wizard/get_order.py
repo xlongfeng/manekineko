@@ -54,13 +54,23 @@ class get_order(osv.TransientModel):
         'sandbox_user_included': False,
     }
     
+    def _search_country_id(self, cr, uid, country, country_name):
+        # TODO
+        return 1
+    
+    def _search_state_id(self, cr, uid, country, state_or_province):
+        # TODO
+        return 1
+    
     def action_sync(self, cr, uid, ids, context=None):
         if context is None:
             context = {}
-        print 'b' * 30
         data = self.read(cr, uid, ids)[0]
-        print data
         ebay_ebay_obj = self.pool.get('ebay.ebay')
+        res_partner_obj = self.pool.get('res.partner')
+        sale_order_obj = self.pool.get('sale.order')
+        sale_order_line_obj = self.pool.get('sale.order.line')
+        pricelist_id = self.pool.get('product.pricelist').search(cr, uid, [], context=context)[0]
         for user in ebay_ebay_obj.get_auth_user(cr, uid, data['sandbox_user_included'], context=context):
             output_selector = [
                 'HasMoreOrders',
@@ -118,15 +128,115 @@ class get_order(osv.TransientModel):
                 error_msg = 'Get the orders for the specified user %s' % user.name
                 resp = ebay_ebay_obj.call(cr, uid, user, 'GetOrders', call_data, error_msg, context=context)
                 has_more_orders = resp.HasMoreOrders == 'true'
-                ebay_ebay_obj.dump_resp(cr, uid, resp)
-                orders = OrderArray.Order
+                # ebay_ebay_obj.dump_resp(cr, uid, resp)
+                orders = resp.OrderArray.Order
                 if type(orders) != list:
                     orders = [orders]
                 for order in orders:
-                    # finding exist customer
-                    call_data=dict()
-                    call_data['create_date'] = order.CreatedTime
-                    pass
+                    # find existing order
+                    domain = [('order_id', '=', order.OrderID)]
+                    ids = sale_order_obj.search(cr, uid, domain, context=context)
+                    if ids:
+                        sale_order = sale_order_obj.browse(cr, uid, ids[0], context=context)
+                        last_modified_time = order.CheckoutStatus.LastModifiedTime
+                        if sale_order.cs_last_modified_time != ebay_ebay_obj.to_default_format(cr, uid, last_modified_time):
+                            # last modified
+                            print 'update everything'
+                            pass
+                    else:
+                        # finding existing customer
+                        partner_id = -1
+                        address_id = order.ShippingAddress.AddressID
+                        domain = [('address_id', '=', address_id)]
+                        ids = res_partner_obj.search(cr, uid, domain, context=context)
+                        if ids:
+                            partner_id = ids[0]
+                        else:
+                            # create new customer
+                            shipping_address = order.ShippingAddress
+                            vals = dict()
+                            vals['from_ebay'] = True
+                            vals['buyer_user_id'] = order.BuyerUserID
+                            vals['address_id'] = address_id
+                            vals['address_owner'] = shipping_address.AddressOwner
+                            vals['city'] = shipping_address.CityName
+                            vals['name'] = shipping_address.Name
+                            vals['phone'] = shipping_address.Phone
+                            vals['zip'] = shipping_address.PostalCode
+                            vals['street'] = shipping_address.Street1
+                            vals['street2'] = shipping_address.get('Street2', {}).get('value')
+                            country = shipping_address.Country
+                            country_name = shipping_address.CountryName
+                            vals['country_id'] = self._search_country_id(cr, uid, country, country_name)
+                            state_or_province = shipping_address.StateOrProvince
+                            vals['state_id'] = self._search_state_id(cr, uid, country, state_or_province)
+                            partner_id = res_partner_obj.create(cr, uid, vals, context=context)
+                            
+                        # create new order
+                        vals = dict()
+                        vals['adjustment_amount'] = order.AdjustmentAmount.get('value')
+                        vals['adjustment_amount_currency_id'] = order.AdjustmentAmount.currencyID
+                        vals['amount_paid'] = order.AmountPaid.get('value')
+                        vals['amount_paid_currency_id'] = order.AmountPaid.currencyID
+                        vals['amount_saved'] = order.AmountSaved.get('value')
+                        vals['amount_saved_currency_id'] = order.AmountSaved.currencyID
+                        vals['date_order'] = order.CreatedTime
+                        checkout_status = order.CheckoutStatus
+                        vals['cs_last_modified_time'] = checkout_status.LastModifiedTime
+                        vals['cs_ebay_payment_status'] = checkout_status.eBayPaymentStatus
+                        vals['cs_payment_method'] = checkout_status.PaymentMethod
+                        vals['cs_status'] = checkout_status.Status
+                        vals['order_id'] = order.OrderID
+                        vals['order_status'] = order.OrderStatus
+                        vals['paid_time'] = order.PaidTime
+                        vals['payment_hold_status'] = order.PaymentHoldStatus
+                        vals['sd_selling_manager_sales_record_number'] = order.ShippingDetails.SellingManagerSalesRecordNumber
+                        vals['shipped_time'] = order.ShippedTime
+                        vals['subtotal'] = order.Subtotal.get('value')
+                        vals['subtotal_currency_id'] = order.Subtotal.currencyID
+                        vals['total'] = order.Total.get('value')
+                        vals['total_currency_id'] = order.Total.currencyID
+                        vals['partner_id'] = vals['partner_invoice_id'] = vals['partner_shipping_id'] = partner_id
+                        vals['pricelist_id'] = pricelist_id
+                        sale_order_id = sale_order_obj.create(cr, uid, vals, context=context)
+                        
+                        # add transactions
+                        transactions = order.TransactionArray.Transaction
+                        if type(transactions) != list:
+                            transactions = [transactions]
+                        for transaction in transactions:
+                            transaction_id = transaction.TransactionID
+                            domain = [('transaction_id', '=', transaction_id)]
+                            ids = sale_order_line_obj.search(cr, uid, domain, context=context)
+                            if ids:
+                                # update existing new sale order line
+                                vals = dict()
+                                sale_order_line = sale_order_line_obj.browse(cr, uid, ids[0], context=context)
+                                #sale_order_line.write(vals)
+                            else:
+                                # create new sale order line
+                                vals = dict()
+                                vals['actual_handling_cost'] = transaction.ActualHandlingCost.get('value')
+                                vals['actual_handling_cost_currency_id'] = transaction.ActualHandlingCost.currencyID
+                                vals['actual_shipping_cost'] = transaction.ActualShippingCost.get('value')
+                                vals['actual_shipping_cost_currency_id'] = transaction.ActualShippingCost.currencyID
+                                vals['order_line_item_id'] = transaction.OrderLineItemID
+                                vals['sd_selling_manager_sales_record_number'] = transaction.ShippingDetails.SellingManagerSalesRecordNumber
+                                vals['transaction_id'] = transaction.TransactionID
+                                vals['transaction_price'] = transaction.TransactionPrice.get('value')
+                                vals['transaction_price_currency_id'] = transaction.TransactionPrice.currencyID
+                                vals['item_id'] = transaction.Item.ItemID
+                                variation = transaction.get('Variation', {})
+                                vals['view_item_url'] = variation.get('VariationViewItemURL', '')
+                                vals['price_unit'] = vals['transaction_price']
+                                vals['product_uom_qty'] = transaction.QuantityPurchased
+                                sku = variation.get('SKU', '') or transaction.Item.SKU
+                                if not sku and sku.isdigit():
+                                    vals['product_id'] = sku
+                                vals['name'] = variation.get('VariationTitle', {}).get('value', '') or transaction.Item.Title
+                                vals['order_id'] = sale_order_id
+                                sale_order_line_obj.create(cr, uid, vals, context=context)
+                        
                 page_number = page_number + 1
 
         return {'type': 'ir.actions.act_window_close'}

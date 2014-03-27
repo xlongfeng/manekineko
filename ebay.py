@@ -21,6 +21,7 @@
 
 import logging
 from datetime import datetime, timedelta, tzinfo
+import dateutil.parser as parser
 from dateutil.relativedelta import relativedelta
 from operator import itemgetter
 import time
@@ -59,6 +60,14 @@ class ebay_ebay(osv.osv):
         '15': 'ebay.au',
         '201': 'ebay.hk',
     }
+    
+    def to_default_format(self, cr, uid, timestamp, context=None):
+        date = (parser.parse(timestamp))
+        return date.strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT)
+    
+    def to_iso8601_format(self, cr, uid, timestamp, context=None):
+        date = (parser.parse(timestamp))
+        return date.isoformat()
     
     def _get_domainname_by_site_id(self, cr, uid, site_id, context=None):
         return self._site_id_domainname_dict.get(site_id, self._site_id_domainname_dict['0'])

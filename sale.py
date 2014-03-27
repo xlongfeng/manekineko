@@ -87,8 +87,8 @@ class sale_order(osv.osv):
         'shipped_time': fields.date('ShippedTime'),
         'subtotal': fields.float('Subtotal'),
         'subtotal_currency_id': fields.char('SubtotalCurrencyID', size=3),
-        'total': fields.float('AmountSaved'),
-        'total_currency_id': fields.char('AmountSavedCurrencyID', size=3),
+        'total': fields.float('Total'),
+        'total_currency_id': fields.char('TotalCurrencyID', size=3),
     }
     _defaults = {
     }
@@ -97,8 +97,19 @@ class sale_order_line(osv.osv):
     _inherit = 'sale.order.line'
     
     _columns = {
+        'actual_handling_cost': fields.float('ActualHandlingCost'),
+        'actual_handling_cost_currency_id': fields.char('ActualHandlingCostCurrencyID', size=3),
+        'actual_shipping_cost': fields.float('ActualShippingCost'),
+        'actual_shipping_cost_currency_id': fields.char('ActualShippingCostPriceCurrencyID', size=3),
+        # Item
+        'item_id': fields.char('Item ID', size=38, readonly=True),
+        'order_line_item_id': fields.char('OrderLineItemID'),
         # ShippingDetails
         'sd_selling_manager_sales_record_number': fields.integer('SellingManagerSalesRecordNumber'),
+        'transaction_id': fields.char('TransactionID'),
+        'transaction_price': fields.float('TransactionPrice'),
+        'transaction_price_currency_id': fields.char('TransactionPriceCurrencyID', size=3),
+        'view_item_url': fields.char('View Item URL', readonly=True),
     }
     _defaults = {
     }
