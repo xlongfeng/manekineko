@@ -14,7 +14,6 @@
 		    </p>
 		    <group>
 			<field name="number_of_days"/>
-			<field name="order_status"/>
 			<field name="sandbox_user_included"/>
 		    </group>
 		    <footer>

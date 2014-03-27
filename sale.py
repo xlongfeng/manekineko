@@ -38,6 +38,7 @@ class sale_order(osv.osv):
         'amount_paid_currency_id': fields.char('AmountPaidCurrencyID', size=3),
         'amount_saved': fields.float('AmountSaved'),
         'amount_saved_currency_id': fields.char('AmountSavedCurrencyID', size=3),
+        'buyer_checkout_message': fields.text('Message'),
         # CheckoutStatus
         'cs_last_modified_time': fields.datetime('LastModifiedTime', readonly=True),
         'cs_ebay_payment_status': fields.selection([
@@ -83,7 +84,7 @@ class sale_order(osv.osv):
             ('ReleasePending', 'ReleasePending'),
             ], 'PaymentHoldStatus', readonly=True),
         # ShippingDetails
-        'sd_selling_manager_sales_record_number': fields.integer('SellingManagerSalesRecordNumber'),
+        'sd_selling_manager_sales_record_number': fields.integer('Record Number'),
         'shipped_time': fields.date('ShippedTime'),
         'subtotal': fields.float('Subtotal'),
         'subtotal_currency_id': fields.char('SubtotalCurrencyID', size=3),
@@ -105,7 +106,7 @@ class sale_order_line(osv.osv):
         'item_id': fields.char('Item ID', size=38, readonly=True),
         'order_line_item_id': fields.char('OrderLineItemID'),
         # ShippingDetails
-        'sd_selling_manager_sales_record_number': fields.integer('SellingManagerSalesRecordNumber'),
+        'sd_selling_manager_sales_record_number': fields.integer('Record Number'),
         'transaction_id': fields.char('TransactionID'),
         'transaction_price': fields.float('TransactionPrice'),
         'transaction_price_currency_id': fields.char('TransactionPriceCurrencyID', size=3),

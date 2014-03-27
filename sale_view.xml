@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+        <record id="ebay_view_order_tree" model="ir.ui.view">
+            <field name="name">sale.order.tree</field>
+            <field name="model">sale.order</field>
+            <field name="inherit_id" ref="sale.view_order_tree" />
+            <field name="arch" type="xml">
+                <data>
+                    <field name="name" position="replace">
+                        <field name="sd_selling_manager_sales_record_number"/>
+                    </field>
+                    <field name="date_order" position="replace"/>
+                    <field name="user_id" position="replace">
+                        <field name="buyer_checkout_message"/>
+                    </field>
+                </data>
+            </field>
+        </record>
+    </data>
+</openerp>
