@@ -246,6 +246,8 @@ class ebay_user(osv.osv):
         # Sale status
         'monthly_sales': fields.float('Monthly Sales', readonly=True),
         'monthly_sales_volume': fields.integer('Monthly Sales Volume', readonly=True),
+        # Additional Info
+        'ebay_item_ids': fields.one2many('ebay.item', 'ebay_user_id', 'Items'),
     }
     
     _defaults = {
