@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+
+        <!-- Top menu item -->
+        <menuitem id="ebay_menu_top" name="eBay"/>
+        
+        <menuitem id="ebay_menu_listing_activity" name="Listing Activity" sequence="90" parent="ebay_menu_top"/>
+        
+        <record model="ir.ui.view" id="ebay_item_form_view">
+            <field name="name">ebay item form</field>
+            <field name="model">ebay.item</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay item form" version="7.0">
+                    <sheet>
+                        <div class="oe_right">
+                            <field name="ebay_user_id" placeholder="eBay Account"/>
+                        </div>
+                        <group string="Title and Category">
+                            <div>
+                                <h1>
+                                    <field name="name" default_focus="1" placeholder="Title"/>
+                                </h1>
+                                <field name="subtitle" placeholder="Subtitle"/>
+                                <field name="primary_category_id" placeholder="Category"/>
+                                <field name="secondary_category_id" placeholder="2nd Category"/>
+                                <div class="oe_title"><field name="store_category_name" placeholder="Store Category" class="oe_title"/></div>
+                                <div class="oe_title"><field name="store_category2name" placeholder="2nd Store Category" class="oe_title"/></div>
+                            </div>
+                        </group>
+                        <group string="Details">
+                            <field name="variations_ids"/>
+                            <field name="item_specifics"/>
+                            <field name="condition_id"/>
+                            <field name="condition_description_id"/>
+                        </group>
+                        <group string="Pictures and Description">
+                            <field name="eps_picture_ids"/>
+                            <field name="description_tmpl_id"/>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_item_tree_view">
+            <field name="name">ebay item tree</field>
+            <field name="model">ebay.item</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay item tree">
+                    <field name="name"/>
+                    <field name="listing_type"/>
+                    <field name="quantity"/>
+                    <field name="listing_duration"/>
+                    <field name="start_price"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record id="action_ebay_item_tree" model="ir.actions.act_window">
+            <field name="name">Inventory</field>
+            <field name="res_model">ebay.item</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+        <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="ebay_menu_listing_activity"/>
+    </data>
+</openerp>

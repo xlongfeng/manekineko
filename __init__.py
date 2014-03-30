@@ -19,6 +19,7 @@
 #
 ##############################################################################
 import ebay
+import ebay_item
 import sale
 import res_partner
 import wizard

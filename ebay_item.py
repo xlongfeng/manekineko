@@ -206,8 +206,8 @@ class ebay_item_variation(osv.osv):
     _columns = {
         'quantity': fields.char('VariationSpecificName', size=40, required=True),
         'product_id': fields.many2one('product.product', 'SKU', ondelete='no action'),
-        'start_price': fields.float('StartPrice', 'ebay_variations_id', 'Pictures'),
-        'variation_pecifics': fields.text('VariationSpecificsSet'),
+        'start_price': fields.float('StartPrice', required=True),
+        'variation_specifics': fields.text('VariationSpecificsSet'),
         'variations_id': fields.many2one('ebay.item.variations', 'variations', ondelete='cascade'),
     }
     
@@ -238,7 +238,7 @@ class ebay_item(osv.osv):
     _description = "eBay item"
     
     _columns = {
-        'auto_pay': fields.boolean('AutoPay'),
+        #'auto_pay': fields.boolean('AutoPay'),
         'buyer_requirement_details_id': fields.many2one('ebay.buyerrequirementdetails', 'BuyerRequirementDetails', ondelete='set null'),
         'buy_it_now_price': fields.float('BuyItNowPrice'),
         'condition_description_id': fields.many2one('ebay.conditiondescription', 'ConditionDescription', ondelete='set null'),
@@ -260,13 +260,13 @@ class ebay_item(osv.osv):
             ('RetroStyle', 'RetroStyle'),
         ], 'HitCounter'),
         'include_recommendations': fields.boolean('IncludeRecommendations'),
-        'Item_Specifics': fields.text('ItemSpecifics', help="""
+        'item_specifics': fields.text('ItemSpecifics', help="""
             For example:
             Name1=Value1
             Name2=Value2
             Name3=Value3
         """),
-        'listing_duration': fields.char('ListingDuration', size=8),
+        'listing_duration': fields.char('Duration', size=8),
         'listing_type': fields.selection([
             #('AdType', 'AdType'),
             ('Chinese', 'Chinese'),
@@ -274,7 +274,7 @@ class ebay_item(osv.osv):
             ('FixedPriceItem', 'FixedPriceItem'),
             #('Half', 'Half'),
             #('LeadGeneration', 'LeadGeneration'),
-        ], 'ListingType', required=True),
+        ], 'Format', required=True),
         'location': fields.char('Location'),
         'out_of_stock_control': fields.boolean('OutOfStockControl'),
         'payment_methods': fields.char('PaymentMethods'),
@@ -283,11 +283,11 @@ class ebay_item(osv.osv):
         #PictureDetails
         'eps_picture_ids': fields.one2many('ebay.epspicture', 'ebay_item_id', 'Pictures'),
         'postal_code': fields.char('PostalCode'),
-        'primary_category_id': fields.char('PrimaryCategoryID', required=True),
+        'primary_category_id': fields.char('Category', required=True),
         'quantity': fields.integer('Quantity'),
         'return_policy_id': fields.many2one('ebay.returnpolicy', 'ReturnPolicy', ondelete='set null'),
         'schedule_time': fields.datetime('ScheduleTime'),
-        'secondary_category_id': fields.char('SecondaryCategoryID'),
+        'secondary_category_id': fields.char('2nd Category'),
         'shipping_details_id': fields.many2one('ebay.shippingdetails', 'ShippingDetails', ondelete='set null'),
         'shipping_terms_in_description': fields.boolean('ShippingTermsInDescription'),
         'ship2locations_id': fields.many2one('ebay.ship2locations', 'ShipToLocations', ondelete='set null'),
@@ -295,16 +295,17 @@ class ebay_item(osv.osv):
         'product_id': fields.many2one('product.product', 'SKU', ondelete='set null'),
         'start_price': fields.float('StartPrice', required=True),
         # Storefront
-        'store_category2id': fields.integer('StoreCategory2ID'),
-        'store_category2name': fields.char('StoreCategory2Name'),
-        'store_category_id': fields.integer('StoreCategoryID'),
-        'store_category_name': fields.char('StoreCategoryName'),
+        'store_category2id': fields.integer('2nd Store Category'),
+        'store_category2name': fields.char('2nd Store Category'),
+        'store_category_id': fields.integer('Store Category'),
+        'store_category_name': fields.char('Store Category'),
         'subtitle': fields.char('SubTitle', size=55),
         'name': fields.char('Title', size=80, required=True, select=True),
         'variations_ids': fields.one2many('ebay.item.variations', 'ebay_item_id', 'Variations'),
         # Additional Info
         'description_tmpl_id': fields.many2one('ebay.item.description.template', 'Template', ondelete='set null'),
-        'ebay_user_id': fields.many2one('ebay.user', 'User', ondelete='set null'),
+        'ebay_user_id': fields.many2one('ebay.user', 'Account', required=True, domain=[('ownership','=',True)], ondelete='set null'),
+        
     }
     
     _defaults = {
@@ -324,6 +325,7 @@ class ebay_item_description_template(osv.osv):
     _description = "eBay item description template"
     
     _columns = {
+        'name': fields.char('Name', required=True, select=True),
         'ebay_item_ids': fields.one2many('ebay.item', 'description_tmpl_id', 'Item'),
     }
     
