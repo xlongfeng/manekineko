@@ -136,7 +136,7 @@ class ebay_ebay(osv.osv):
                     api.config.set('token', auth_user.ebay_auth_token, force=True)
                 
             api.execute(call_name, call_data)
-            return api.response_dict()
+            return api
     
         except ConnectionError as e:
             raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
@@ -248,6 +248,7 @@ class ebay_user(osv.osv):
         'monthly_sales_volume': fields.integer('Monthly Sales Volume', readonly=True),
         # Additional Info
         'ebay_item_ids': fields.one2many('ebay.item', 'ebay_user_id', 'Items'),
+        'paypal_account': fields.char('Paypal Account'),
     }
     
     _defaults = {
@@ -265,7 +266,7 @@ class ebay_user(osv.osv):
             call_data=dict()
             call_data['UserID'] = user.name
             error_msg = 'Get the data for the specified user %s' % user.name
-            resp = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetUser', call_data, error_msg, context=context)
+            resp = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetUser', call_data, error_msg, context=context).response_dict()
             vals = dict()
             user_dict = resp.User
             vals['email'] = user_dict.Email
@@ -331,7 +332,7 @@ class ebay_user(osv.osv):
                 call_data['DetailLevel'] = 'ReturnAll'
                 call_data['OutputSelector'] = output_selector
                 error_msg = 'Get the seller list for the specified user %s' % user.name
-                resp = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetSellerList', call_data, error_msg, context=context)
+                resp = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetSellerList', call_data, error_msg, context=context).response_dict()
                 ebay_seller_list_obj = self.pool.get('ebay.seller.list')
                 has_more_items = resp.HasMoreItems == 'true'
                 items = resp.ItemArray.Item

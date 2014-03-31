@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+
+        <!-- wizard view -->
+        <record model="ir.ui.view" id="ebay_get_ebay_details_view">
+            <field name="name">ebay get ebay details</field>
+            <field name="model">ebay.ebay.details</field>
+            <field name="arch" type="xml">
+                <form string="ebay get ebay details" version="7.0">
+		    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+		    <separator string="Retrieve the available meta-data for the specified eBay site"/>
+		    <div class="oe_title" states="option"><field name="ebay_user_id"/></div>
+		    <group states="option">
+			<group>
+			    <field name="buyerrequirementdetails"/>
+			    <field name="countrydetails"/>
+			    <field name="currencydetails"/>
+			    <field name="dispatchtimemaxdetails"/>
+			    <field name="excludeshippinglocationdetails"/>
+			    <field name="itemspecificdetails"/>
+			    <field name="listingfeaturedetails"/>
+			    <field name="listingstartpricedetails"/>
+			    <field name="paymentoptiondetails"/>
+			    <field name="recoupmentpolicydetails"/>
+			    <field name="regiondetails"/>
+			    <field name="regionoforigindetails"/>
+			</group>
+			<group>
+			    <field name="returnpolicydetails"/>
+			    <field name="shippingcarrierdetails"/>
+			    <field name="shippingcategorydetails"/>
+			    <field name="shippinglocationdetails"/>
+			    <field name="shippingpackagedetails"/>
+			    <field name="shippingservicedetails"/>
+			    <field name="sitedetails"/>
+			    <field name="taxjurisdiction"/>
+			    <field name="timezonedetails"/>
+			    <field name="unitofmeasurementdetails"/>
+			    <field name="urldetails"/>
+			    <field name="variationdetails"/>
+			</group>
+		    </group>
+		    <footer states="option">
+			<button name="action_download" string="Download" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		    <div states="download">
+			<p>Get eBay Details Complete</p>
+			<p>Here is the ebay details file: <field name="data" readonly="1" filename="name"/></p>
+			<p>This file was generated using the universal <strong>Unicode/UTF-8</strong> file encoding, please be sure to view and edit
+                           using the same encoding.</p> 
+		    </div>
+		    <footer states="download">
+                        <button special="cancel" string="Close" type="object"/>
+                    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <record id="action_ebay_get_ebay_details_view" model="ir.actions.act_window">
+            <field name="name">Get eBay Details</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">ebay.ebay.details</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem
+            name="Get eBay Details"
+            action="action_ebay_get_ebay_details_view"
+            id="menu_ebay_get_ebay_details_view"
+            parent="ebay_menu_listing_activity"
+            sequence="90"/>
+
+    </data>
+</openerp>

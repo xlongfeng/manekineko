@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+
+        <!-- wizard view -->
+        <record model="ir.ui.view" id="ebay_get_category_features_view">
+            <field name="name">ebay get category features</field>
+            <field name="model">ebay.category.features</field>
+            <field name="arch" type="xml">
+                <form string="ebay get category features" version="7.0">
+		    <field name="state" invisible="1"/>
+                    <field name="name" invisible="1"/>
+		    <separator string="Retrieve information that describes the feature and value settings that apply to the set of eBay categories"/>
+		    <group states="option">
+			<field name="ebay_user_id"/>
+			<field name="category_id"/>
+		    </group>
+		    <footer states="option">
+			<button name="action_download" string="Download" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		    <div states="download">
+			<p>Get Category Features Complete</p>
+			<p>Here is the ebay category features file: <field name="data" readonly="1" filename="name"/></p>
+			<p>This file was generated using the universal <strong>Unicode/UTF-8</strong> file encoding, please be sure to view and edit
+                           using the same encoding.</p> 
+		    </div>
+		    <footer states="download">
+                        <button special="cancel" string="Close" type="object"/>
+                    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <record id="action_ebay_get_category_features_view" model="ir.actions.act_window">
+            <field name="name">Get eBay Category Features</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">ebay.category.features</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem
+            name="Get Category Features"
+            action="action_ebay_get_category_features_view"
+            id="menu_ebay_get_cagegory_features_view"
+            parent="ebay_menu_listing_activity"
+            sequence="90"/>
+
+    </data>
+</openerp>

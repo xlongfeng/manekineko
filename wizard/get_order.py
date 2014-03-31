@@ -136,7 +136,7 @@ class get_order(osv.TransientModel):
                     'PageNumber': page_number,
                 }
                 error_msg = 'Get the orders for the specified user %s' % user.name
-                resp = ebay_ebay_obj.call(cr, uid, user, 'GetOrders', call_data, error_msg, context=context)
+                resp = ebay_ebay_obj.call(cr, uid, user, 'GetOrders', call_data, error_msg, context=context).response_dict()
                 has_more_orders = resp.HasMoreOrders == 'true'
                 # ebay_ebay_obj.dump_resp(cr, uid, resp)
                 orders = resp.OrderArray.Order

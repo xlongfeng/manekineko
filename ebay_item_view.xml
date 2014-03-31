@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <openerp>
     <data>
-
-        <!-- Top menu item -->
-        <menuitem id="ebay_menu_top" name="eBay"/>
         
         <menuitem id="ebay_menu_listing_activity" name="Listing Activity" sequence="90" parent="ebay_menu_top"/>
         
@@ -19,21 +16,36 @@
                         </div>
                         <group string="Title and Category">
                             <div>
-                                <h1>
+                                <h2>
                                     <field name="name" default_focus="1" placeholder="Title"/>
-                                </h1>
-                                <field name="subtitle" placeholder="Subtitle"/>
+                                </h2>
+                                <field name="subtitle" placeholder="Subtitle" invisible="1"/>
                                 <field name="primary_category_id" placeholder="Category"/>
-                                <field name="secondary_category_id" placeholder="2nd Category"/>
+                                <field name="secondary_category_id" placeholder="2nd Category" invisible="1"/>
                                 <div class="oe_title"><field name="store_category_name" placeholder="Store Category" class="oe_title"/></div>
                                 <div class="oe_title"><field name="store_category2name" placeholder="2nd Store Category" class="oe_title"/></div>
                             </div>
                         </group>
-                        <group string="Details">
-                            <field name="variations_ids"/>
-                            <field name="item_specifics"/>
-                            <field name="condition_id"/>
-                            <field name="condition_description_id"/>
+                        <group>
+                            <group string="Details">
+                                <field name="item_specifics"/>
+                                <field name="condition_id"/>
+                                <field name="condition_description_id"/>
+                            </group>
+                            <group string="Selling Format">
+                                <field name="listing_type"/>
+                                <field name="start_price"/>
+                                <field name="buy_it_now_price"/>
+                                <field name="quantity"/>
+                                <field name="listing_duration"/>
+                            </group>
+                        </group>
+                        <group string="Variations">
+                            <field name="variat"/>
+                            <field name="variation_specific_name"/>
+                            <field name="variations_pictures"/>
+                            <field name="variation_specifics_set"/>
+                            <field name="variation_ids"/>
                         </group>
                         <group string="Pictures and Description">
                             <field name="eps_picture_ids"/>

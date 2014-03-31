@@ -37,6 +37,32 @@ import openerp.addons.decimal_precision as dp
 
 _logger = logging.getLogger(__name__)
 
+class ebay_category(osv.osv):
+    _name = "ebay.category"
+    _description = "eBay category"
+    
+    _columns = {
+        'name': fields.char('Name', required=True),
+        'auto_pay_enabled': fields.boolean('AutoPayEnabled', readonly=True),
+        'b2bvat_enabled': fields.boolean('B2BVATEnabled', readonly=True),
+        'best_offer_enabled': fields.boolean('BestOfferEnabled', readonly=True),
+        'category_id': fields.char('CategoryID', size=10, required=True),
+        'category_level': fields.integer('CategoryLevel', readonly=True),
+        'category_name': fields.char('CategoryName', size=30, readonly=True),
+        'category_parent_id': fields.char('CategoryParentID', size=10, readonly=True),
+        'expired': fields.boolean('Expired', readonly=True),
+        'intl_autos_fixed_cat': fields.boolean('IntlAutosFixedCat', readonly=True),
+        'Leaf_Category': fields.boolean('LeafCategory', readonly=True),
+        'lsd': fields.boolean('LSD', readonly=True),
+        'orpa': fields.boolean('ORPA', readonly=True),
+        'orra': fields.boolean('ORRA', readonly=True),
+    }
+    
+    _defaults = {
+    }
+    
+ebay_category()
+
 class ebay_buyerrequirementdetails(osv.osv):
     _name = "ebay.buyerrequirementdetails"
     _description = "eBay buyer requirement details"
@@ -110,7 +136,6 @@ class ebay_epspicture(osv.osv):
         # SiteHostedPictureDetails
         'ebay_item_id': fields.many2one('ebay.item', 'Item', ondelete='cascade'),
         'variation_specific_value': fields.char('VariationSpecificValue', size=40),
-        'ebay_variations_id': fields.many2one('ebay.item.variations', 'Variations', ondelete='cascade'),
     }
     
     _defaults = {
@@ -204,34 +229,18 @@ class ebay_item_variation(osv.osv):
     _description = "eBay item variation"
     
     _columns = {
-        'quantity': fields.char('VariationSpecificName', size=40, required=True),
+        'quantity': fields.integer('Quantity', required=True),
         'product_id': fields.many2one('product.product', 'SKU', ondelete='no action'),
         'start_price': fields.float('StartPrice', required=True),
         'variation_specifics': fields.text('VariationSpecificsSet'),
-        'variations_id': fields.many2one('ebay.item.variations', 'variations', ondelete='cascade'),
-    }
-    
-    _defaults = {
-    }
-    
-ebay_item_variation()
-
-class ebay_item_variations(osv.osv):
-    _name = "ebay.item.variations"
-    _description = "eBay item variations"
-    
-    _columns = {
-        #Pictures
-        'name': fields.char('VariationSpecificName', size=40, required=True),
-        'eps_picture_ids': fields.one2many('ebay.epspicture', 'ebay_variations_id', 'Pictures'),
-        'variation_specifics_set': fields.text('VariationSpecificsSet'),
         'ebay_item_id': fields.many2one('ebay.item', 'Item', ondelete='cascade'),
     }
     
     _defaults = {
+        'start_price': 9.99
     }
     
-ebay_item_variations()
+ebay_item_variation()
 
 class ebay_item(osv.osv):
     _name = "ebay.item"
@@ -283,11 +292,11 @@ class ebay_item(osv.osv):
         #PictureDetails
         'eps_picture_ids': fields.one2many('ebay.epspicture', 'ebay_item_id', 'Pictures'),
         'postal_code': fields.char('PostalCode'),
-        'primary_category_id': fields.char('Category', required=True),
+        'primary_category_id': fields.many2one('ebay.category', 'Category', ondelete='set null'),
         'quantity': fields.integer('Quantity'),
         'return_policy_id': fields.many2one('ebay.returnpolicy', 'ReturnPolicy', ondelete='set null'),
         'schedule_time': fields.datetime('ScheduleTime'),
-        'secondary_category_id': fields.char('2nd Category'),
+        'secondary_category_id': fields.many2one('ebay.category', '2nd Category', ondelete='set null'),
         'shipping_details_id': fields.many2one('ebay.shippingdetails', 'ShippingDetails', ondelete='set null'),
         'shipping_terms_in_description': fields.boolean('ShippingTermsInDescription'),
         'ship2locations_id': fields.many2one('ebay.ship2locations', 'ShipToLocations', ondelete='set null'),
@@ -301,7 +310,12 @@ class ebay_item(osv.osv):
         'store_category_name': fields.char('Store Category'),
         'subtitle': fields.char('SubTitle', size=55),
         'name': fields.char('Title', size=80, required=True, select=True),
-        'variations_ids': fields.one2many('ebay.item.variations', 'ebay_item_id', 'Variations'),
+        # Variations
+        'variat': fields.boolean('Variat'),
+        'variation_specific_name': fields.char('VariationSpecificName', size=40),
+        'variations_pictures': fields.text('VariationsPictures'),
+        'variation_specifics_set': fields.text('VariationSpecificsSet'),
+        'variation_ids': fields.one2many('ebay.item.variation', 'ebay_item_id', 'Variantions'),
         # Additional Info
         'description_tmpl_id': fields.many2one('ebay.item.description.template', 'Template', ondelete='set null'),
         'ebay_user_id': fields.many2one('ebay.user', 'Account', required=True, domain=[('ownership','=',True)], ondelete='set null'),
@@ -309,13 +323,15 @@ class ebay_item(osv.osv):
     }
     
     _defaults = {
+        'buy_it_now_price': 19.99,
         'cross_border_trade': 'North America',
         'disable_buyer_requirements': False,
         'dispatch_time_max': 2,
         'hit_counter': 'HiddenStyle',
         'include_recommendations': True,
         'listing_type': 'FixedPriceItem',
-        'quantity': 1
+        'quantity': 1,
+        'start_price': 9.99,
     }
 
 ebay_item()
