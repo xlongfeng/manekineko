@@ -246,6 +246,7 @@ class ebay_shippingdetails(osv.osv):
     
     _columns = {
         'name': fields.char('Name', required=True),
+        'exclude_ship_to_location': fields.text('Exclude Ship To Location'),
         # InternationalShippingServiceOption
         # Shipping costs and options related to an international shipping service.
         'isso_shipping_service': fields.char('Shipping Service', required=True),
@@ -297,24 +298,6 @@ class ebay_shippingdetails(osv.osv):
     
 ebay_shippingdetails()
 
-class ebay_ship2locations(osv.osv):
-    _name = "ebay.ship2locations"
-    _description = "eBay ship to locations"
-    
-    _columns = {
-        'name': fields.char('Name', required=True),
-        'ship2locations': fields.text('ShipToLocations', required=True, help="""
-            For example:
-                
-        """),
-        'ebay_item_ids': fields.one2many('ebay.item', 'ship2locations_id', 'Item'),
-    }
-    
-    _defaults = {
-    }
-    
-ebay_ship2locations()
-
 class ebay_item_variation(osv.osv):
     _name = "ebay.item.variation"
     _description = "eBay item variation"
@@ -342,7 +325,7 @@ class ebay_item(osv.osv):
         'buyer_requirement_details_id': fields.many2one('ebay.buyerrequirementdetails', 'Buyer Requirement', ondelete='set null'),
         'buy_it_now_price': fields.float('BuyItNowPrice'),
         'condition_description_id': fields.many2one('ebay.conditiondescription', 'Condition Description', ondelete='set null'),
-        'condition_id': fields.integer('Condition ID', required=True),
+        'condition_id': fields.integer('Condition ID'),
         'country': fields.char('Country', size=2),
         'cross_border_trade': fields.char('CrossBorderTrade'),
         'currency': fields.char('Currency', size=3),
@@ -390,7 +373,6 @@ class ebay_item(osv.osv):
         'secondary_category_id': fields.many2one('ebay.category', '2nd Category', ondelete='set null'),
         'shipping_details_id': fields.many2one('ebay.shippingdetails', 'Shipping Details', ondelete='set null'),
         'shipping_terms_in_description': fields.boolean('ShippingTermsInDescription'),
-        'ship2locations_id': fields.many2one('ebay.ship2locations', 'Ship To Locations', ondelete='set null'),
         'site': fields.char('Site', size=16),
         # SKU
         'product_id': fields.many2one('product.product', 'Product', ondelete='set null'),

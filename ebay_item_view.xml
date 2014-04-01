@@ -62,7 +62,6 @@
                         <group string="Shipping and Policies">
                             <group>
                                 <field name="shipping_details_id"/>
-                                <field name="ship2locations_id"/>
                             </group>
                             <group>
                                 <field name="return_policy_id"/>
@@ -285,6 +284,8 @@
                                 <field name="isso_shipping_service_additional_cost"/>
                             </group>
                         </group>
+                        <label for="exclude_ship_to_location"/>
+                        <field name="exclude_ship_to_location"/>
                     </sheet>
                 </form>
             </field>
@@ -327,33 +328,6 @@
             <field name="type">tree</field>
             <field name="arch" type="xml">
                 <tree string="ebay return policy tree">
-                    <field name="name"/>
-                </tree>
-            </field>
-        </record>
-        
-        <record model="ir.ui.view" id="ebay_ship_to_locations_form_view">
-            <field name="name">ebay ship to locations form</field>
-            <field name="model">ebay.ship2locations</field>
-            <field name="type">form</field>
-            <field name="arch" type="xml">
-                <form string="ebay ship to locations form" version="7.0">
-                    <sheet>
-                        <group>
-                            <field name="name" default_focus="1"/>
-                            <field name="ship2locations"/>
-                        </group>
-                    </sheet>
-                </form>
-            </field>
-        </record>
-        
-        <record model="ir.ui.view" id="ebay_ship_to_locations_tree_view">
-            <field name="name">ebay ship to locations tree</field>
-            <field name="model">ebay.ship2locations</field>
-            <field name="type">tree</field>
-            <field name="arch" type="xml">
-                <tree string="ebay ship to locations tree">
                     <field name="name"/>
                 </tree>
             </field>
