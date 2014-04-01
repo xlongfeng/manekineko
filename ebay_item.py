@@ -43,6 +43,14 @@ class ebay_category(osv.osv):
     
     _columns = {
         'name': fields.char('Name', required=True),
+        'category_site_id': fields.selection([
+            ('0', 'US'),
+            ('2', 'Canada',),
+            ('3', 'UK'),
+            ('15', 'Australia'),
+            ('201', 'HongKong'),
+        ], 'Category Site', required=True),
+        'sandbox': fields.boolean('Sandbox'),
         'auto_pay_enabled': fields.boolean('AutoPay Enabled', readonly=True),
         'b2bvat_enabled': fields.boolean('B2BVAT Enabled', readonly=True),
         'best_offer_enabled': fields.boolean('Best Offer Enabled', readonly=True),
@@ -58,14 +66,33 @@ class ebay_category(osv.osv):
         'orra': fields.boolean('ORRA', readonly=True),
         # Category Feature
         'category_feature': fields.text('Category Feature', readonly=True),
-        'ebay_user_id': fields.many2one('ebay.user', 'Account', required=True, domain=[('ownership','=',True)], ondelete='set null'),
     }
     
     _defaults = {
+        'category_site_id': '0',
+        'sandbox': False
     }
     
     def action_update(self, cr, uid, ids, context=None):
-        pass
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
+        for category in self.browse(cr, uid, ids, context=context):
+            user = ebay_ebay_obj.get_arbitrary_auth_user(cr, uid, category.sandbox)
+            call_data=dict()
+            call_data['CategoryParent'] = category.category_id
+            call_data['CategorySiteID'] = category.category_site_id
+            #call_data['ViewAllNodes'] = False
+            error_msg = 'Get the category information for %s' % category.category_id
+            #resp = ebay_ebay_obj.call(cr, uid, user, 'GetCategories', call_data, error_msg, context=context).response_dict()
+            #ebay_ebay_obj.dump_resp(cr, uid, resp)
+            
+            call_data = dict()
+            call_data['AllFeaturesForCategory'] = True
+            call_data['CategoryID'] = category.category_id
+            call_data['ViewAllNodes'] = True
+            call_data['DetailLevel'] = 'ReturnAll'
+            error_msg = 'Get the category features for %s' % category.category_id
+            resp = ebay_ebay_obj.call(cr, uid, user, 'GetCategoryFeatures', call_data, error_msg, context=context).response_content()
+            category.write(dict(category_feature=resp))
     
 ebay_category()
 

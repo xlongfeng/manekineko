@@ -91,7 +91,9 @@
                     </header>
                     <sheet>
                         <div class="oe_right">
-                            <field name="ebay_user_id" placeholder="eBay Account"/>
+                            <field name="category_site_id" placeholder="Category Site"/>
+                            <label for="sandbox"/>
+                            <field name="sandbox" class="oe_inline"/>
                         </div>
                         <div class="oe_title">
                             <div class="oe_edit_only">
