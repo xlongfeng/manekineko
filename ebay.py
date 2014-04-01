@@ -69,6 +69,12 @@ class ebay_ebay(osv.osv):
         date = (parser.parse(timestamp))
         return date.isoformat()
     
+    def format_pairs(self, cr, uid, pairs):
+        return json.dumps(pairs, indent=2)
+        
+    def dump_resp(self, cr, uid, resp, context=None):
+        print((json.dumps(resp, indent=2)))
+    
     def _get_domainname_by_site_id(self, cr, uid, site_id, context=None):
         return self._site_id_domainname_dict.get(site_id, self._site_id_domainname_dict['0'])
     
@@ -111,9 +117,6 @@ class ebay_ebay(osv.osv):
             raise osv.except_osv(_('Warning!'), _('Can not find an authorized user'))
             
         return ebay_user_obj.browse(cr, uid, ids[0], context=context)
-    
-    def dump_resp(self, cr, uid, resp, context=None):
-        print((json.dumps(resp, indent=2)))
     
     def call(self, cr, uid, user, call_name, call_data=dict(), error_msg='', context=None):
         try:

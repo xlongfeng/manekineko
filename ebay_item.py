@@ -37,6 +37,41 @@ import openerp.addons.decimal_precision as dp
 
 _logger = logging.getLogger(__name__)
 
+class ebay_details(osv.osv):
+    _name = "ebay.details"
+    _description = "eBay details"
+    
+    _columns = {
+        'name': fields.char('Name', required=True),
+        'site_id': fields.selection([
+            ('0', 'US'),
+            ('2', 'Canada',),
+            ('3', 'UK'),
+            ('15', 'Australia'),
+            ('201', 'HongKong'),
+        ], 'Site', required=True),
+        'sandbox': fields.boolean('Sandbox'),
+        # Category Feature
+        'ebay_details': fields.text('eBay Details', readonly=True),
+    }
+    
+    _defaults = {
+        'name': 'ebay details',
+        'site_id': '0',
+        'sandbox': False
+    }
+    
+    def action_update(self, cr, uid, ids, context=None):
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
+        for details in self.browse(cr, uid, ids, context=context):
+            user = ebay_ebay_obj.get_arbitrary_auth_user(cr, uid, details.sandbox)
+            call_data = dict()
+            error_msg = 'Get the ebay details list for %s site' % details.site_id
+            resp = self.pool.get('ebay.ebay').call(cr, uid, user, 'GeteBayDetails', call_data, error_msg, context=context).response_content()
+            details.write(dict(ebay_details=resp))
+    
+ebay_details()
+
 class ebay_category(osv.osv):
     _name = "ebay.category"
     _description = "eBay category"
@@ -51,20 +86,15 @@ class ebay_category(osv.osv):
             ('201', 'HongKong'),
         ], 'Category Site', required=True),
         'sandbox': fields.boolean('Sandbox'),
-        'auto_pay_enabled': fields.boolean('AutoPay Enabled', readonly=True),
-        'b2bvat_enabled': fields.boolean('B2BVAT Enabled', readonly=True),
-        'best_offer_enabled': fields.boolean('Best Offer Enabled', readonly=True),
         'category_id': fields.char('Category ID', size=10, required=True),
-        'category_level': fields.integer('Category Level', readonly=True),
-        'category_name': fields.char('Category Name', size=30, readonly=True),
-        'category_parent_id': fields.char('Category Parent ID', size=10, readonly=True),
-        'expired': fields.boolean('Expired', readonly=True),
-        'intl_autos_fixed_cat': fields.boolean('Intl Autos Fixed Cat', readonly=True),
-        'leaf_category': fields.boolean('Leaf Category', readonly=True),
-        'lsd': fields.boolean('LSD', readonly=True),
-        'orpa': fields.boolean('ORPA', readonly=True),
-        'orra': fields.boolean('ORRA', readonly=True),
         # Category Feature
+        'condition_enabled': fields.char('ConditionEnabled', readonly=True),
+        'condition_values': fields.text('ConditionValues'),
+        'free_gallery_plus_enabled': fields.boolean('FreeGalleryPlusEnabled', readonly=True),
+        'free_picture_pack_enabled': fields.boolean('FreePicturePackEnabled', readonly=True),
+        'handling_time_enabled': fields.boolean('HandlingTimeEnabled', readonly=True),
+        'item_specifics_enabled': fields.char('ItemSpecificsEnabled', readonly=True),
+        'variations_enabled': fields.boolean('VariationsEnabled', readonly=True),
         'category_feature': fields.text('Category Feature', readonly=True),
     }
     
@@ -91,8 +121,19 @@ class ebay_category(osv.osv):
             call_data['ViewAllNodes'] = True
             call_data['DetailLevel'] = 'ReturnAll'
             error_msg = 'Get the category features for %s' % category.category_id
-            resp = ebay_ebay_obj.call(cr, uid, user, 'GetCategoryFeatures', call_data, error_msg, context=context).response_content()
-            category.write(dict(category_feature=resp))
+            api = ebay_ebay_obj.call(cr, uid, user, 'GetCategoryFeatures', call_data, error_msg, context=context)
+            resp_dict = api.response_dict()
+            category_feature = resp_dict.Category
+            vals = dict()
+            vals['condition_enabled'] = category_feature.ConditionEnabled
+            vals['condition_values'] = ebay_ebay_obj.format_pairs(cr, uid, category_feature.ConditionValues.Condition)
+            vals['free_gallery_plus_enabled'] = category_feature.get('FreeGalleryPlusEnabled', False)
+            vals['free_picture_pack_enabled'] = category_feature.get('FreePicturePackEnabled', False)
+            vals['handling_time_enabled'] = category_feature.get('HandlingTimeEnabled', False)
+            vals['item_specifics_enabled'] = category_feature.ItemSpecificsEnabled
+            vals['variations_enabled'] = category_feature.get('VariationsEnabled', False)
+            vals['category_feature'] = api.response_content()
+            category.write(vals)
     
 ebay_category()
 
@@ -140,7 +181,7 @@ class ebay_buyerrequirementdetails(osv.osv):
         'ship2registration_country': True,
         'vur_minimum_feedback_score': 5,
         'vur_verified_user': True,
-        'zero_feedback_score': True,
+        'zero_feedback_score': False,
     }
     
 ebay_buyerrequirementdetails()
@@ -183,14 +224,14 @@ class ebay_returnpolicy(osv.osv):
     _columns = {
         'name': fields.char('Name', required=True),
         'description': fields.text('Description', size=5000),
-        'refund_option': fields.char('RefundOption', required=True),
-        'restocking_feevalue_option': fields.char('RestockingFeeValueOption', required=True),
+        'refund_option': fields.char('RefundOption'),
+        'restocking_feevalue_option': fields.char('RestockingFeeValueOption'),
         'returns_accepted_option': fields.char('ReturnsAcceptedOption', required=True),
-        'returns_within_option': fields.char('ReturnsWithinOption', required=True),
-        'shipping_cost_paid_by_option': fields.char('ShippingCostPaidByOption', required=True),
-        'warranty_duration_option': fields.char('WarrantyDurationOption', required=True),
-        'warranty_offered_option': fields.char('WarrantyOfferedOption', required=True),
-        'warranty_type_option': fields.char('WarrantyTypeOption', required=True),
+        'returns_within_option': fields.char('ReturnsWithinOption'),
+        'shipping_cost_paid_by_option': fields.char('ShippingCostPaidByOption'),
+        'warranty_duration_option': fields.char('WarrantyDurationOption'),
+        'warranty_offered_option': fields.char('WarrantyOfferedOption'),
+        'warranty_type_option': fields.char('WarrantyTypeOption'),
         'ebay_item_ids': fields.one2many('ebay.item', 'return_policy_id', 'Item'),
     }
 
@@ -207,17 +248,17 @@ class ebay_shippingdetails(osv.osv):
         'name': fields.char('Name', required=True),
         # InternationalShippingServiceOption
         # Shipping costs and options related to an international shipping service.
-        'isso_shipping_service': fields.char('ShippingService', required=True),
-        'isso_shipping_service_additional_cost': fields.float('ShippingServiceAdditionalCost'),
-        'isso_shipping_service_cost': fields.float('ShippingServiceCost'),
+        'isso_shipping_service': fields.char('Shipping Service', required=True),
+        'isso_shipping_service_additional_cost': fields.float('Additional Cost'),
+        'isso_shipping_service_cost': fields.float('Cost'),
         'isso_shipping_service_priority': fields.integer('ShippingServicePriority'),
         # ShippingServiceOptions
         # Shipping costs and options related to domestic shipping services offered by the seller.
         # Flat and calculated shipping.
-        'sso_free_shipping': fields.boolean('FreeShipping', required=True),
-        'sso_shipping_service': fields.char('ShippingService'),
-        'sso_shipping_service_additional_Cost': fields.float('ShippingServiceAdditionalCost'),
-        'sso_shipping_service_cost': fields.float('ShippingServiceCost'),
+        'sso_free_shipping': fields.boolean('Free Shipping'),
+        'sso_shipping_service': fields.char('Shipping Service', required=True),
+        'sso_shipping_service_additional_Cost': fields.float('Additional Cost'),
+        'sso_shipping_service_cost': fields.float('Cost'),
         'sso_shipping_service_priority': fields.integer('ShippingServicePriority'),
         'shipping_type': fields.selection([
             ('Calculated', 'Calculated'),
@@ -227,15 +268,32 @@ class ebay_shippingdetails(osv.osv):
             ('FlatDomesticCalculatedInternational', 'FlatDomesticCalculatedInternational'),
             ('FreightFlat', 'FreightFlat'),
             ('NotSpecified', 'NotSpecified'),
-        ], 'ShippingType'),
+        ], 'ShippingType', readonly=True),
         'ebay_item_ids': fields.one2many('ebay.item', 'shipping_details_id', 'Item'),
     }
     
     _defaults = {
+        'isso_shipping_service': 'OtherInternational',
         'isso_shipping_service_priority': 1,
+        'sso_free_shipping': True,
+        'sso_shipping_service': 'EconomyShippingFromOutsideUS',
         'sso_shipping_service_priority': 1,
         'shipping_type': 'Flat',
     }
+    
+    def on_change_sso_free_shipping(self, cr, uid, id, sso_free_shipping, context=None):
+        if sso_free_shipping:
+            return {
+                'value': {
+                    'sso_shipping_service_cost': 0.0,
+                    'sso_shipping_service_additional_Cost': 0.0,
+                }
+            }
+        else:
+            return {
+                'value': {
+                }
+            }
     
 ebay_shippingdetails()
 
@@ -281,10 +339,10 @@ class ebay_item(osv.osv):
     
     _columns = {
         #'auto_pay': fields.boolean('AutoPay'),
-        'buyer_requirement_details_id': fields.many2one('ebay.buyerrequirementdetails', 'BuyerRequirementDetails', ondelete='set null'),
+        'buyer_requirement_details_id': fields.many2one('ebay.buyerrequirementdetails', 'Buyer Requirement', ondelete='set null'),
         'buy_it_now_price': fields.float('BuyItNowPrice'),
-        'condition_description_id': fields.many2one('ebay.conditiondescription', 'ConditionDescription', ondelete='set null'),
-        'condition_id': fields.integer('ConditionID'),
+        'condition_description_id': fields.many2one('ebay.conditiondescription', 'Condition Description', ondelete='set null'),
+        'condition_id': fields.integer('Condition ID', required=True),
         'country': fields.char('Country', size=2),
         'cross_border_trade': fields.char('CrossBorderTrade'),
         'currency': fields.char('Currency', size=3),
@@ -311,9 +369,9 @@ class ebay_item(osv.osv):
         'listing_duration': fields.char('Duration', size=8),
         'listing_type': fields.selection([
             #('AdType', 'AdType'),
-            ('Chinese', 'Chinese'),
+            ('Chinese', 'Auction'),
             #('CustomCode', 'CustomCode'),
-            ('FixedPriceItem', 'FixedPriceItem'),
+            ('FixedPriceItem', 'Fixed Price'),
             #('Half', 'Half'),
             #('LeadGeneration', 'LeadGeneration'),
         ], 'Format', required=True),
@@ -325,16 +383,17 @@ class ebay_item(osv.osv):
         #PictureDetails
         'eps_picture_ids': fields.one2many('ebay.epspicture', 'ebay_item_id', 'Pictures'),
         'postal_code': fields.char('PostalCode'),
-        'primary_category_id': fields.many2one('ebay.category', 'Category', ondelete='set null'),
+        'primary_category_id': fields.many2one('ebay.category', 'Category', required=True, ondelete='set null'),
         'quantity': fields.integer('Quantity'),
-        'return_policy_id': fields.many2one('ebay.returnpolicy', 'ReturnPolicy', ondelete='set null'),
+        'return_policy_id': fields.many2one('ebay.returnpolicy', 'Return Policy', ondelete='set null'),
         'schedule_time': fields.datetime('ScheduleTime'),
         'secondary_category_id': fields.many2one('ebay.category', '2nd Category', ondelete='set null'),
-        'shipping_details_id': fields.many2one('ebay.shippingdetails', 'ShippingDetails', ondelete='set null'),
+        'shipping_details_id': fields.many2one('ebay.shippingdetails', 'Shipping Details', ondelete='set null'),
         'shipping_terms_in_description': fields.boolean('ShippingTermsInDescription'),
-        'ship2locations_id': fields.many2one('ebay.ship2locations', 'ShipToLocations', ondelete='set null'),
+        'ship2locations_id': fields.many2one('ebay.ship2locations', 'Ship To Locations', ondelete='set null'),
         'site': fields.char('Site', size=16),
-        'product_id': fields.many2one('product.product', 'SKU', ondelete='set null'),
+        # SKU
+        'product_id': fields.many2one('product.product', 'Product', ondelete='set null'),
         'start_price': fields.float('StartPrice', required=True),
         # Storefront
         'store_category2id': fields.integer('2nd Store Category'),
@@ -344,27 +403,59 @@ class ebay_item(osv.osv):
         'subtitle': fields.char('SubTitle', size=55),
         'name': fields.char('Title', size=80, required=True, select=True),
         # Variations
-        'variat': fields.boolean('Variat'),
+        'variation_invalid': fields.boolean('Variation Invalid'),
+        'variation': fields.boolean('Variation'),
         'variation_specific_name': fields.char('VariationSpecificName', size=40),
         'variations_pictures': fields.text('VariationsPictures'),
         'variation_specifics_set': fields.text('VariationSpecificsSet'),
         'variation_ids': fields.one2many('ebay.item.variation', 'ebay_item_id', 'Variantions'),
         # Additional Info
         'description_tmpl_id': fields.many2one('ebay.item.description.template', 'Template', ondelete='set null'),
+        'site_id': fields.selection([
+            ('0', 'US'),
+            ('2', 'Canada',),
+            ('3', 'UK'),
+            ('15', 'Australia'),
+            ('201', 'HongKong'),
+        ], 'Site', required=True),
         'ebay_user_id': fields.many2one('ebay.user', 'Account', required=True, domain=[('ownership','=',True)], ondelete='set null'),
     }
     
     _defaults = {
         'buy_it_now_price': 19.99,
+        'condition_id': 1000,
         'cross_border_trade': 'North America',
         'disable_buyer_requirements': False,
         'dispatch_time_max': 2,
         'hit_counter': 'HiddenStyle',
         'include_recommendations': True,
+        'listing_duration': 'GTC',
         'listing_type': 'FixedPriceItem',
         'quantity': 1,
         'start_price': 9.99,
+        'site_id': '0',
     }
+    
+    def on_change_primary_category_id(self, cr, uid, id, primary_category_id, listing_type, context=None):
+        value = dict()
+        variation_invalid = False
+        category = self.pool.get('ebay.category').browse(cr, uid, primary_category_id, context=context)
+        if listing_type == 'Chinese':
+            value['quantity'] = 1
+            value['listing_duration'] = 'Days_7'
+        else:
+            value['quantity'] = 99
+            value['listing_duration'] = 'GTC'
+        if listing_type == 'Chinese' or not category.variations_enabled:
+            value['variation_invalid'] = True
+        else:
+            value['variation_invalid'] = False
+        return {
+            'value': value
+        }
+    
+    def on_change_listing_type(self, cr, uid, id, primary_category_id, listing_type, context=None):
+        return self.on_change_primary_category_id(cr, uid, id, primary_category_id, listing_type, context=context)
 
 ebay_item()
 
@@ -374,6 +465,7 @@ class ebay_item_description_template(osv.osv):
     
     _columns = {
         'name': fields.char('Name', required=True, select=True),
+        'template': fields.html('Template'),
         'ebay_item_ids': fields.one2many('ebay.item', 'description_tmpl_id', 'Item'),
     }
     

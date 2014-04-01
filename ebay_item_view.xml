@@ -11,16 +11,22 @@
             <field name="arch" type="xml">
                 <form string="ebay item form" version="7.0">
                     <sheet>
-                        <div class="oe_right">
-                            <field name="ebay_user_id" placeholder="eBay Account"/>
-                        </div>
+                        <group>
+                            <group>
+                                <field name="product_id"></field>
+                            </group>
+                            <group>
+                                <field name="site_id"/>
+                                <field name="ebay_user_id"/>
+                            </group>
+                        </group>
                         <group string="Title and Category">
                             <div>
                                 <h2>
                                     <field name="name" default_focus="1" placeholder="Title"/>
                                 </h2>
                                 <field name="subtitle" placeholder="Subtitle" invisible="1"/>
-                                <field name="primary_category_id" placeholder="Category"/>
+                                <field name="primary_category_id" on_change="on_change_primary_category_id(primary_category_id, listing_type)" placeholder="Category"/>
                                 <field name="secondary_category_id" placeholder="2nd Category" invisible="1"/>
                                 <div class="oe_title"><field name="store_category_name" placeholder="Store Category" class="oe_title"/></div>
                                 <div class="oe_title"><field name="store_category2name" placeholder="2nd Store Category" class="oe_title"/></div>
@@ -33,24 +39,35 @@
                                 <field name="condition_description_id"/>
                             </group>
                             <group string="Selling Format">
-                                <field name="listing_type"/>
+                                <field name="listing_type" on_change="on_change_listing_type(primary_category_id, listing_type)"/>
                                 <field name="start_price"/>
-                                <field name="buy_it_now_price"/>
-                                <field name="quantity"/>
+                                <field name="buy_it_now_price" attrs="{'invisible': [('listing_type','=','Chinese')]}"/>
+                                <field name="quantity" attrs="{'readonly': [('listing_type','=','Chinese')]}"/>
                                 <field name="listing_duration"/>
                             </group>
                         </group>
-                        <group string="Variations">
-                            <field name="variat"/>
-                            <field name="variation_specific_name"/>
-                            <field name="variations_pictures"/>
-                            <field name="variation_specifics_set"/>
-                            <field name="variation_ids"/>
+                        <field name="variation_invalid" invisible="1"/>
+                        <group string="Variations" attrs="{'invisible': [('variation_invalid','=',True)]}">
+                            <field name="variation"/>
+                            <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)]}"/>
+                            <field name="variations_pictures" attrs="{'invisible': [('variation','=',False)]}"/>
+                            <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)]}"/>
+                            <field name="variation_ids" attrs="{'invisible': [('variation','=',False)]}"/>
                         </group>
                         <group string="Pictures and Description">
                             <field name="eps_picture_ids"/>
                             <field name="description_tmpl_id"/>
                             <field name="description"/>
+                        </group>
+                        <group string="Shipping and Policies">
+                            <group>
+                                <field name="shipping_details_id"/>
+                                <field name="ship2locations_id"/>
+                            </group>
+                            <group>
+                                <field name="return_policy_id"/>
+                                <field name="buyer_requirement_details_id"/>
+                            </group>
                         </group>
                     </sheet>
                 </form>
@@ -80,6 +97,56 @@
         </record>
         <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="ebay_menu_listing_activity"/>
         
+        <record model="ir.ui.view" id="ebay_details_form_view">
+            <field name="name">ebay details form</field>
+            <field name="model">ebay.details</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay details form" version="7.0">
+                    <header>
+                        <button class="oe_highlight" name="action_update" string="Update eBay Details" type="object"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_right">
+                            <field name="site_id" placeholder="Site"/>
+                            <label for="sandbox"/>
+                            <field name="sandbox" class="oe_inline"/>
+                        </div>
+                        <div class="oe_title">
+                            <div class="oe_edit_only">
+                                <label for="name"/>
+                            </div>
+                            <h1>
+                                <field name="name" default_focus="1"/>
+                            </h1>
+                        </div>
+                        <field name="ebay_details"/>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_details_tree_view">
+            <field name="name">ebay details tree</field>
+            <field name="model">ebay.details</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay details tree">
+                    <field name="name"/>
+                    <field name="site_id"/>
+                    <field name="sandbox"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record id="action_ebay_details_tree" model="ir.actions.act_window">
+            <field name="name">eBay Details</field>
+            <field name="res_model">ebay.details</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+        <menuitem id="ebay_menu_details" action="action_ebay_details_tree" sequence="30" parent="ebay_menu_listing_activity"/>
+        
         <record model="ir.ui.view" id="ebay_category_form_view">
             <field name="name">ebay category form</field>
             <field name="model">ebay.category</field>
@@ -105,24 +172,15 @@
                         </div>
                         <field name="name"/>
                         <group>
-                            <group>
-                                <field name="category_name"/>
-                                <field name="category_level"/>
-                                <field name="category_parent_id"/>
-                                <field name="leaf_category"/>
-                                <field name="expired"/>
-                            </group>
-                            <group>
-                                <field name="auto_pay_enabled"/>
-                                <field name="best_offer_enabled"/>
-                                <field name="b2bvat_enabled"/>
-                                <field name="intl_autos_fixed_cat"/>
-                                <field name="lsd"/>
-                                <field name="orpa"/>
-                                <field name="orra"/>
-                            </group>
-                            <field name="category_feature"/>
+                            <field name="condition_enabled"/>
+                            <field name="condition_values"/>
+                            <field name="free_gallery_plus_enabled"/>
+                            <field name="free_picture_pack_enabled"/>
+                            <field name="handling_time_enabled"/>
+                            <field name="item_specifics_enabled"/>
+                            <field name="variations_enabled"/>
                         </group>
+                        <field name="category_feature"/>
                     </sheet>
                 </form>
             </field>
@@ -134,9 +192,10 @@
             <field name="type">tree</field>
             <field name="arch" type="xml">
                 <tree string="ebay category tree">
-                    <field name="name"/>
                     <field name="category_id"/>
-                    <field name="category_name"/>
+                    <field name="name"/>
+                    <field name="category_site_id"/>
+                    <field name="sandbox"/>
                 </tree>
             </field>
         </record>
@@ -147,6 +206,202 @@
             <field name="view_type">form</field>
             <field name="view_mode">tree,form</field>
         </record>
-        <menuitem id="ebay_menu_category" action="action_ebay_category_tree" sequence="30" parent="ebay_menu_listing_activity"/>
+        <menuitem id="ebay_menu_category" action="action_ebay_category_tree" sequence="40" parent="ebay_menu_listing_activity"/>
+        
+        <record model="ir.ui.view" id="ebay_condition_description_form_view">
+            <field name="name">ebay condition description form</field>
+            <field name="model">ebay.conditiondescription</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay condition description form" version="7.0">
+                    <group>
+                        <field name="name"/>
+                        <field name="description"/>
+                    </group>
+                </form>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_condition_description_tree_view">
+            <field name="name">ebay condition description tree</field>
+            <field name="model">ebay.conditiondescription</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay condition description tree">
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_item_description_template_form_view">
+            <field name="name">ebay item description template form</field>
+            <field name="model">ebay.item.description.template</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay item description template form" version="7.0">
+                    <field name="name" placeholder='Template Name'/>
+                    <field name="template"/>
+                </form>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_item_description_template_tree_view">
+            <field name="name">ebay item description template tree</field>
+            <field name="model">ebay.item.description.template</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay item description template tree">
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_shipping_details_form_view">
+            <field name="name">ebay shipping details form</field>
+            <field name="model">ebay.shippingdetails</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay shipping details form" version="7.0">
+                    <sheet>
+                        <div class="oe_title">
+                            <div class="oe_edit_only">
+                                <label for="name"/>
+                            </div>
+                            <h2>
+                                <field name="name" default_focus="1"/>
+                            </h2>
+                        </div>
+                        <field name="shipping_type" invisible='1'/>
+                        <group>
+                            <group string="Domestic Shipping">
+                                <field name="sso_shipping_service"/>
+                                <field name="sso_shipping_service_cost" attrs="{'readonly': [('sso_free_shipping','=',True)]}"/>
+                                <field name="sso_shipping_service_additional_Cost" attrs="{'readonly': [('sso_free_shipping','=',True)]}"/>
+                                <field name="sso_free_shipping" on_change="on_change_sso_free_shipping(sso_free_shipping)"/>
+                            </group>
+                            <group string="International Shipping">
+                                <field name="isso_shipping_service"/>
+                                <field name="isso_shipping_service_cost"/>
+                                <field name="isso_shipping_service_additional_cost"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_shipping_details_tree_view">
+            <field name="name">ebay shipping details tree</field>
+            <field name="model">ebay.shippingdetails</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay shipping details tree">
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_return_policy_form_view">
+            <field name="name">ebay return policy form</field>
+            <field name="model">ebay.returnpolicy</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay return policy form" version="7.0">
+                    <sheet>
+                        <group>
+                            <field name="name" default_focus="1"/>
+                            <field name="returns_accepted_option"/>
+                            <field name="returns_within_option"/>
+                            <field name="refund_option"/>
+                            <field name="shipping_cost_paid_by_option"/>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_return_policy_tree_view">
+            <field name="name">ebay shipping details tree</field>
+            <field name="model">ebay.returnpolicy</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay return policy tree">
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_ship_to_locations_form_view">
+            <field name="name">ebay ship to locations form</field>
+            <field name="model">ebay.ship2locations</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay ship to locations form" version="7.0">
+                    <sheet>
+                        <group>
+                            <field name="name" default_focus="1"/>
+                            <field name="ship2locations"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_ship_to_locations_tree_view">
+            <field name="name">ebay ship to locations tree</field>
+            <field name="model">ebay.ship2locations</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay ship to locations tree">
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_buyer_requirement_details_form_view">
+            <field name="name">ebay buyer requirement details form</field>
+            <field name="model">ebay.buyerrequirementdetails</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay buyer requirement details form" version="7.0">
+                    <sheet>
+                        <group>
+                            <field name="name" default_focus="1"/>
+                            <field name="linked_paypal_account"/>
+                        </group>
+                        <group string="Maximum Unpaid Item Strikes Info">
+                            <field name="muisi_count"/>
+                            <field name="muisi_period"/>
+                            <field name="ship2registration_country"/>
+                        </group>
+                        <group string="Maximum Buyer Policy Violations">
+                            <field name="mbpv_count"/>
+                            <field name="mbpv_period"/>
+                            <field name="minimum_feedback_score"/>
+                        </group>
+                        <group string="Maximum Item Requirements">
+                            <field name="mir_maximum_item_count"/>
+                            <field name="mir_minimum_feedback_score"/>
+                        </group>
+                        <group string="Verified User Requirements">
+                            <field name="vur_minimum_feedback_score"/>
+                            <field name="vur_verified_user"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_buyer_requirement_details_tree_view">
+            <field name="name">ebay buyer requirement details tree</field>
+            <field name="model">ebay.buyerrequirementdetails</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay buyer requirement details tree">
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
     </data>
 </openerp>
