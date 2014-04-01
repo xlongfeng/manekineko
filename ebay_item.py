@@ -43,23 +43,29 @@ class ebay_category(osv.osv):
     
     _columns = {
         'name': fields.char('Name', required=True),
-        'auto_pay_enabled': fields.boolean('AutoPayEnabled', readonly=True),
-        'b2bvat_enabled': fields.boolean('B2BVATEnabled', readonly=True),
-        'best_offer_enabled': fields.boolean('BestOfferEnabled', readonly=True),
-        'category_id': fields.char('CategoryID', size=10, required=True),
-        'category_level': fields.integer('CategoryLevel', readonly=True),
-        'category_name': fields.char('CategoryName', size=30, readonly=True),
-        'category_parent_id': fields.char('CategoryParentID', size=10, readonly=True),
+        'auto_pay_enabled': fields.boolean('AutoPay Enabled', readonly=True),
+        'b2bvat_enabled': fields.boolean('B2BVAT Enabled', readonly=True),
+        'best_offer_enabled': fields.boolean('Best Offer Enabled', readonly=True),
+        'category_id': fields.char('Category ID', size=10, required=True),
+        'category_level': fields.integer('Category Level', readonly=True),
+        'category_name': fields.char('Category Name', size=30, readonly=True),
+        'category_parent_id': fields.char('Category Parent ID', size=10, readonly=True),
         'expired': fields.boolean('Expired', readonly=True),
-        'intl_autos_fixed_cat': fields.boolean('IntlAutosFixedCat', readonly=True),
-        'Leaf_Category': fields.boolean('LeafCategory', readonly=True),
+        'intl_autos_fixed_cat': fields.boolean('Intl Autos Fixed Cat', readonly=True),
+        'leaf_category': fields.boolean('Leaf Category', readonly=True),
         'lsd': fields.boolean('LSD', readonly=True),
         'orpa': fields.boolean('ORPA', readonly=True),
         'orra': fields.boolean('ORRA', readonly=True),
+        # Category Feature
+        'category_feature': fields.text('Category Feature', readonly=True),
+        'ebay_user_id': fields.many2one('ebay.user', 'Account', required=True, domain=[('ownership','=',True)], ondelete='set null'),
     }
     
     _defaults = {
     }
+    
+    def action_update(self, cr, uid, ids, context=None):
+        pass
     
 ebay_category()
 
@@ -319,7 +325,6 @@ class ebay_item(osv.osv):
         # Additional Info
         'description_tmpl_id': fields.many2one('ebay.item.description.template', 'Template', ondelete='set null'),
         'ebay_user_id': fields.many2one('ebay.user', 'Account', required=True, domain=[('ownership','=',True)], ondelete='set null'),
-        
     }
     
     _defaults = {

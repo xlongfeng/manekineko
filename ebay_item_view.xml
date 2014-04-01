@@ -79,5 +79,72 @@
             <field name="view_mode">tree,form</field>
         </record>
         <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="ebay_menu_listing_activity"/>
+        
+        <record model="ir.ui.view" id="ebay_category_form_view">
+            <field name="name">ebay category form</field>
+            <field name="model">ebay.category</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay category form" version="7.0">
+                    <header>
+                        <button class="oe_highlight" name="action_update" string="Update Category Feature" type="object"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_right">
+                            <field name="ebay_user_id" placeholder="eBay Account"/>
+                        </div>
+                        <div class="oe_title">
+                            <div class="oe_edit_only">
+                                <label for="category_id"/>
+                            </div>
+                            <h1>
+                                <field name="category_id" default_focus="1" placeholder="Category ID" />
+                            </h1>
+                        </div>
+                        <field name="name"/>
+                        <group>
+                            <group>
+                                <field name="category_name"/>
+                                <field name="category_level"/>
+                                <field name="category_parent_id"/>
+                                <field name="leaf_category"/>
+                                <field name="expired"/>
+                            </group>
+                            <group>
+                                <field name="auto_pay_enabled"/>
+                                <field name="best_offer_enabled"/>
+                                <field name="b2bvat_enabled"/>
+                                <field name="intl_autos_fixed_cat"/>
+                                <field name="lsd"/>
+                                <field name="orpa"/>
+                                <field name="orra"/>
+                            </group>
+                            <field name="category_feature"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <record model="ir.ui.view" id="ebay_category_tree_view">
+            <field name="name">ebay category tree</field>
+            <field name="model">ebay.category</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay category tree">
+                    <field name="name"/>
+                    <field name="category_id"/>
+                    <field name="category_name"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record id="action_ebay_category_tree" model="ir.actions.act_window">
+            <field name="name">eBay Categories</field>
+            <field name="res_model">ebay.category</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+        <menuitem id="ebay_menu_category" action="action_ebay_category_tree" sequence="30" parent="ebay_menu_listing_activity"/>
     </data>
 </openerp>
