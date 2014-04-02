@@ -55,7 +55,62 @@
                             <field name="variation_ids" attrs="{'invisible': [('variation','=',False)]}"/>
                         </group>
                         <group string="Pictures and Description">
-                            <field name="eps_picture_ids"/>
+                            <field name="eps_picture_ids" mode="kanban">
+                                <kanban>
+                                    <field name="name"/>
+                                    <field name="has_image"/>
+                                    <field name="variation_specific_value"/>
+                                    <templates>
+                                        <t t-name="kanban-box">
+                                            <div class="oe_kanban_vignette">
+                                                <a t-if="! read_only_mode" type="delete" style="position: absolute; right: 0; padding: 4px; diplay: inline-block">Delete</a>
+                                                <a type="open">
+                                                    <t t-if="record.has_image.raw_value === true and (!record.image or record.image.raw_value === false)">
+                                                        <img t-att-src="kanban_image('ebay.eps.picture', 'image', record.id.value, {'preview_image': 'image_small'})" class="oe_avatar oe_kanban_image"/>
+                                                    </t>
+                                                    <t t-if="record.image and record.image.raw_value !== false">
+                                                        <img t-att-src="'data:image/png;base64,'+record.image.raw_value" class="oe_avatar oe_kanban_image"/>
+                                                    </t>
+                                                </a>
+                                                <div class="oe_kanban_details">
+                                                    <h4 class="oe_partner_heading"><a type="open"><field name="name"/></a></h4>
+                                                    <div t-if="record.variation_specific_value.raw_value"><field name="variation_specific_value"/></div>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                                <form string="EPS Picture" version="7.0">
+                                    <sheet>
+                                        <field name="image" widget='image' class="oe_avatar oe_left" options='{"preview_image": "image_medium", "size": [128, 128]}'/>
+                                        <div class="oe_title">
+                                            <div class="oe_edit_only">
+                                                <label for="name"/>
+                                            </div>
+                                            <h1>
+                                                <field name="name" default_focus="1" placeholder="Name" />
+                                            </h1>
+                                            <div class="oe_edit_only">
+                                                <label for="variation_specific_value"/>
+                                            </div>
+                                            <field name="variation_specific_value"/>
+                                        </div>
+                                        <group>
+                                            <field name="use_by_date"/>
+                                            <field name="full_url"/>
+                                            <field name="base_url"/>
+                                            <field name="picture_format"/>
+                                        </group>
+                                        <field name="picturesetmember_ids">
+                                            <tree string="Picture Set Member">
+                                                <field name="member_url"/>
+                                                <field name="picture_height"/>
+                                                <field name="picture_width"/>
+                                            </tree>
+                                        </field>
+                                    </sheet>
+                                </form>
+                            </field>
                             <field name="description_tmpl_id"/>
                             <field name="description"/>
                         </group>

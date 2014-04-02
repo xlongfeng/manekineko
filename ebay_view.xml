@@ -162,13 +162,13 @@
                 <form string="ebay user form" version="7.0">
                     <sheet>
                         <!-- <div><field name="thumbnail" widget="image" class="oe_avatar oe_left"/></div> -->
-                        <div class="oe_title">
+                        <div>
                             <div class="oe_edit_only">
                                 <label for="name"/>
                             </div>
-                            <h1>
+                            <h2>
                                 <field name="name" default_focus="1" placeholder="item title" />
-                            </h1>
+                            </h2>
                             <field name="view_item_url" widget='url'/>
                         </div>
                         <group>

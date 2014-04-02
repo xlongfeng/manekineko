@@ -201,21 +201,88 @@ class ebay_conditiondescription(osv.osv):
     
 ebay_conditiondescription()
 
-class ebay_epspicture(osv.osv):
-    _name = "ebay.epspicture"
+class ebay_eps_picturesetmember(osv.osv):
+    _name = "ebay.eps.picturesetmember"
     _description = "eBay EPS Picture"
     
     _columns = {
+        'member_url': fields.char('MemberURL'),
+        'picture_height': fields.integer('PictureHeight'),
+        'picture_width': fields.integer('PictureWidth'),
+        'ebay_eps_picture_id': fields.many2one('ebay.eps.picture', 'EPS Picture', ondelete='cascade'),
+    }
+    
+    _rec_name = 'member_url'
+
+ebay_eps_picturesetmember()
+
+class ebay_eps_picture(osv.osv):
+    _name = "ebay.eps.picture"
+    _description = "eBay EPS Picture"
+    
+    def _get_image(self, cr, uid, ids, name, args, context=None):
+        result = dict.fromkeys(ids, False)
+        for obj in self.browse(cr, uid, ids, context=context):
+            result[obj.id] = tools.image_get_resized_images(obj.image)
+        return result
+    
+    def _set_image(self, cr, uid, id, name, value, args, context=None):
+        return self.write(cr, uid, [id], {'image': tools.image_resize_image_big(value)}, context=context)
+    
+    def _has_image(self, cr, uid, ids, name, args, context=None):
+        result = {}
+        for obj in self.browse(cr, uid, ids, context=context):
+            result[obj.id] = obj.image != False
+        return result
+    
+    _columns = {
         'name': fields.char('Name', required=True),
+        # image: all image fields are base64 encoded and PIL-supported
+        'image': fields.binary("Image", required=True,
+            help="This field holds the image used as avatar for this contact, limited to 1024x1024px"),
+        'image_medium': fields.function(_get_image, fnct_inv=_set_image,
+            string="Medium-sized image", type="binary", multi="_get_image",
+            store={
+                'ebay.eps.picture': (lambda self, cr, uid, ids, c={}: ids, ['image'], 10),
+            },
+            help="Medium-sized image of this contact. It is automatically "\
+                 "resized as a 128x128px image, with aspect ratio preserved. "\
+                 "Use this field in form views or some kanban views."),
+        'image_small': fields.function(_get_image, fnct_inv=_set_image,
+            string="Small-sized image", type="binary", multi="_get_image",
+            store={
+                'ebay.eps.picture': (lambda self, cr, uid, ids, c={}: ids, ['image'], 10),
+            },
+            help="Small-sized image of this contact. It is automatically "\
+                 "resized as a 64x64px image, with aspect ratio preserved. "\
+                 "Use this field anywhere a small image is required."),
+        'has_image': fields.function(_has_image, type="boolean"),
         # SiteHostedPictureDetails
-        'ebay_item_id': fields.many2one('ebay.item', 'Item', ondelete='cascade'),
-        'variation_specific_value': fields.char('VariationSpecificValue', size=40),
+        'base_url': fields.char('BaseURL', readonly=True),
+        'external_picture_url ': fields.char('ExternalPictureURL', readonly=True),
+        'full_url': fields.char('FullURL', readonly=True),
+        'picture_format': fields.char('PictureFormat', readonly=True),
+        'picturesetmember_ids': fields.one2many('ebay.eps.picturesetmember', 'ebay_eps_picture_id', 'PictureSetMember', readonly=True),
+        'use_by_date': fields.datetime('UseByDate', readonly=True),
+        'variation_specific_value': fields.char('Variation Specific Value', size=40),
+        'ebay_item_id': fields.many2one('ebay.item', 'Item', readonly=True, ondelete='cascade'),
     }
     
     _defaults = {
     }
     
-ebay_epspicture()
+    _order = 'name'
+    
+    def write(self, cr, uid, ids, vals, context=None):
+        if context is None:
+            context = {}
+        if not ids:
+            return True
+        if 'image' in vals:
+            vals['use_by_date'] = None
+        return super(ebay_eps_picture, self).write(cr, uid, ids, vals, context=context)
+    
+ebay_eps_picture()
 
 class ebay_returnpolicy(osv.osv):
     _name = "ebay.returnpolicy"
@@ -364,7 +431,7 @@ class ebay_item(osv.osv):
         'paypal_email_address': fields.char('PayPalEmailAddress'),
         'payment_methods': fields.char('PaymentMethods'),
         #PictureDetails
-        'eps_picture_ids': fields.one2many('ebay.epspicture', 'ebay_item_id', 'Pictures'),
+        'eps_picture_ids': fields.one2many('ebay.eps.picture', 'ebay_item_id', 'Picture'),
         'postal_code': fields.char('PostalCode'),
         'primary_category_id': fields.many2one('ebay.category', 'Category', required=True, ondelete='set null'),
         'quantity': fields.integer('Quantity'),
