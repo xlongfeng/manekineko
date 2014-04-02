@@ -19,6 +19,8 @@
 #
 ##############################################################################
 
+import io
+import base64
 import logging
 from datetime import datetime, timedelta, tzinfo
 import dateutil.parser as parser
@@ -206,9 +208,9 @@ class ebay_eps_picturesetmember(osv.osv):
     _description = "eBay EPS Picture"
     
     _columns = {
-        'member_url': fields.char('MemberURL'),
-        'picture_height': fields.integer('PictureHeight'),
-        'picture_width': fields.integer('PictureWidth'),
+        'member_url': fields.char('URL'),
+        'picture_height': fields.integer('Height'),
+        'picture_width': fields.integer('Width'),
         'ebay_eps_picture_id': fields.many2one('ebay.eps.picture', 'EPS Picture', ondelete='cascade'),
     }
     
@@ -279,7 +281,7 @@ class ebay_eps_picture(osv.osv):
         if not ids:
             return True
         if 'image' in vals:
-            vals['use_by_date'] = None
+            vals['use_by_date'] = fields.datetime.now()
         return super(ebay_eps_picture, self).write(cr, uid, ids, vals, context=context)
     
 ebay_eps_picture()
@@ -374,6 +376,7 @@ class ebay_item_variation(osv.osv):
         'product_id': fields.many2one('product.product', 'SKU', ondelete='no action'),
         'start_price': fields.float('StartPrice', required=True),
         'variation_specifics': fields.text('VariationSpecificsSet'),
+        'quantity_sold': fields.integer('Quantity Sold', readonly=True),
         'ebay_item_id': fields.many2one('ebay.item', 'Item', ondelete='cascade'),
     }
     
@@ -458,14 +461,28 @@ class ebay_item(osv.osv):
         'variations_pictures': fields.text('VariationsPictures'),
         'variation_specifics_set': fields.text('VariationSpecificsSet'),
         'variation_ids': fields.one2many('ebay.item.variation', 'ebay_item_id', 'Variantions'),
+        # Item Status ------------
+        'bid_count': fields.integer('Bit Count', readonly=True),
+        'hit_count': fields.integer('Hit Count', readonly=True),
+        'item_id': fields.char('Item ID', size=38, readonly=True),
+        'quantity_sold': fields.integer('Quantity Sold', readonly=True),
+        'state': fields.selection([
+            ('Draft', 'Draft'),
+            ('Active', 'Active'),
+            ('Completed', 'Completed'),
+            ('Ended', 'Ended'),
+        ], 'Listing Status', readonly=True),
+        'time_left': fields.datetime('Time Left', readonly=True),
+        'watch_count': fields.integer('Watch Count', readonly=True),
+        'response': fields.text('Response', readonly=True),
         # Additional Info
         'description_tmpl_id': fields.many2one('ebay.item.description.template', 'Template', ondelete='set null'),
-        'site_id': fields.selection([
-            ('0', 'US'),
-            ('2', 'Canada',),
-            ('3', 'UK'),
-            ('15', 'Australia'),
-            ('201', 'HongKong'),
+        'site': fields.selection([
+            ('US', 'US'),
+            ('Canada', 'Canada',),
+            ('UK', 'UK'),
+            ('Australia', 'Australia'),
+            ('HongKong', 'HongKong'),
         ], 'Site', required=True),
         'ebay_user_id': fields.many2one('ebay.user', 'Account', required=True, domain=[('ownership','=',True)], ondelete='set null'),
     }
@@ -482,10 +499,13 @@ class ebay_item(osv.osv):
         'listing_type': 'FixedPriceItem',
         'quantity': 1,
         'start_price': 9.99,
-        'site_id': '0',
+        'state': 'Draft',
+        'site': 'US',
     }
     
     def on_change_primary_category_id(self, cr, uid, id, primary_category_id, listing_type, context=None):
+        if not primary_category_id:
+            return False
         value = dict()
         variation_invalid = False
         category = self.pool.get('ebay.category').browse(cr, uid, primary_category_id, context=context)
@@ -505,7 +525,75 @@ class ebay_item(osv.osv):
     
     def on_change_listing_type(self, cr, uid, id, primary_category_id, listing_type, context=None):
         return self.on_change_primary_category_id(cr, uid, id, primary_category_id, listing_type, context=context)
-
+    
+    def upload_pictures(self, cr, uid, user, eps_pictures, context=None):
+        ebay_eps_picturesetmember = self.pool.get('ebay.eps.picturesetmember')
+        # TODO
+        time_now_pdt = datetime.now()
+        for picture in eps_pictures:
+            if not picture.use_by_date or (parser.parse(picture.use_by_date) - time_now_pdt).days < 2:
+                image = io.BytesIO(base64.b64decode(picture.image))
+                call_data = dict()
+                call_data['PictureSystemVersion'] = 2
+                call_data['PictureUploadPolicy'] = 'Add'
+                error_msg = 'Upload image %s' % picture.name
+                resp_dict = self.pool.get('ebay.ebay').call(cr, uid, user,
+                    'UploadSiteHostedPictures', call_data, error_msg, files=dict(image=image), context=context).response_dict()
+                site_hosted_picture_details = resp_dict.SiteHostedPictureDetails
+                vals = dict()
+                vals['base_url'] = site_hosted_picture_details.BaseURL
+                vals['external_picture_url'] = site_hosted_picture_details.get('ExternalPictureURL', {}).get('value', '')
+                vals['full_url'] = site_hosted_picture_details.FullURL
+                vals['picture_format'] = site_hosted_picture_details.PictureFormat
+                vals['use_by_date'] = site_hosted_picture_details.UseByDate
+                picture.write(vals)
+                picture_set_member = site_hosted_picture_details.PictureSetMember
+                cr.execute('delete from ebay_eps_picturesetmember \
+                        where ebay_eps_picture_id=%s', (picture.id,))
+                for picture_set in picture_set_member:
+                    vals = dict()
+                    vals['member_url'] = picture_set.MemberURL
+                    vals['picture_height'] = picture_set.PictureHeight
+                    vals['picture_width'] = picture_set.PictureWidth
+                    vals['ebay_eps_picture_id'] = picture.id
+                    ebay_eps_picturesetmember.create(cr, uid, vals, context=context)
+                    
+    def item_create(self, cr, uid, item, context=None):
+        user = item.ebay_user_id
+        self.upload_pictures(cr, uid, user, item.eps_picture_ids, context=context)
+        item_dict = {
+            'Item': {
+                'Title': item.name,
+                'PrimaryCategory': {'CategoryID': item.primary_category_id.category_id},
+                'CategoryMappingAllowed': 'true',
+                #'Description': item.description,
+                'StartPrice': item.start_price,
+                'Currency': item.currency,
+                'Quantity': item.quantity,
+                'ListingDuration': item.listing_duration,
+                'DispatchTimeMax': item.dispatch_time_max,
+                'PaymentMethods': 'PayPal',
+                'PayPalEmailAddress': user.paypal_account,
+                'Site': item.site,
+            }
+        }
+        
+        return item_dict, item.listing_type == 'Chinese'
+    
+    def action_verify(self, cr, uid, ids, context=None):
+        for item in self.browse(cr, uid, ids, context=context):
+            print '#' * 60
+            print item.name
+            user = item.ebay_user_id
+            item_dict, auction = self.item_create(cr, uid, item, context=context)
+            ebay_ebay_obj = self.pool.get('ebay.ebay')
+            error_msg = 'Verify the item: %s' % item.name
+            call_name = "VerifyAddItem" if auction else "VerifyAddFixedPriceItem"
+            api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
+            #api.response_content()
+            ebay_ebay_obj.dump_resp(cr, uid, api.response_dict(), context=context)
+            
+            
 ebay_item()
 
 class ebay_item_description_template(osv.osv):

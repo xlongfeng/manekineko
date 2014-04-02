@@ -118,7 +118,7 @@ class ebay_ebay(osv.osv):
             
         return ebay_user_obj.browse(cr, uid, ids[0], context=context)
     
-    def call(self, cr, uid, user, call_name, call_data=dict(), error_msg='', context=None):
+    def call(self, cr, uid, user, call_name, call_data=dict(), error_msg='', files=None, context=None):
         try:
             api = Trading(domain=self.pool.get('ebay.ebay').get_ebay_api_domain(cr, uid, user.sale_site, user.sandbox))
             
@@ -138,7 +138,7 @@ class ebay_ebay(osv.osv):
                     api.config.set('certid', auth_user.cert, force=True)
                     api.config.set('token', auth_user.ebay_auth_token, force=True)
                 
-            api.execute(call_name, call_data)
+            api.execute(call_name, call_data, files=files)
             return api
     
         except ConnectionError as e:
