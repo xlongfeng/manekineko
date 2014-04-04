@@ -130,13 +130,17 @@ class ebay_category(osv.osv):
             category_feature = resp_dict.Category
             vals = dict()
             vals['condition_enabled'] = category_feature.ConditionEnabled
-            vals['condition_values'] = ebay_ebay_obj.format_pairs(cr, uid, category_feature.ConditionValues.Condition)
-            vals['free_gallery_plus_enabled'] = category_feature.get('FreeGalleryPlusEnabled', False)
-            vals['free_picture_pack_enabled'] = category_feature.get('FreePicturePackEnabled', False)
-            vals['handling_time_enabled'] = category_feature.get('HandlingTimeEnabled', False)
-            vals['item_specifics_enabled'] = category_feature.ItemSpecificsEnabled
-            vals['variations_enabled'] = category_feature.get('VariationsEnabled', False)
-            vals['category_feature'] = api.response_content()
+            readability = "%s | %s\n" % ("DisplayName", "ID")
+            readability += "%s\n" % ("-" * 64,)
+            for condition in category_feature.ConditionValues.Condition:
+                readability += "%s | %s\n" % (condition.DisplayName, condition.ID)
+            vals['condition_values'] = readability
+            vals['free_gallery_plus_enabled'] = category_feature.get('FreeGalleryPlusEnabled', 'false') == 'true'
+            vals['free_picture_pack_enabled'] = category_feature.get('FreePicturePackEnabled', 'false') == 'true'
+            vals['handling_time_enabled'] = category_feature.get('HandlingTimeEnabled', 'false') == 'true'
+            vals['item_specifics_enabled'] = category_feature.get('ItemSpecificsEnabled', '')
+            vals['variations_enabled'] = category_feature.get('VariationsEnabled', 'false') == 'true'
+            vals['category_feature'] = api.response.content
             category.write(vals)
     
 ebay_category()

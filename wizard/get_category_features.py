@@ -57,7 +57,7 @@ class get_category_features(osv.TransientModel):
         call_data['ViewAllNodes'] = True
         call_data['DetailLevel'] = 'ReturnAll'
         error_msg = 'Get the ebay details list for the specified user %s' % this.ebay_user_id.name
-        resp = self.pool.get('ebay.ebay').call(cr, uid, this.ebay_user_id, 'GetCategoryFeatures', call_data, error_msg, context=context).response_content()
+        resp = self.pool.get('ebay.ebay').call(cr, uid, this.ebay_user_id, 'GetCategoryFeatures', call_data, error_msg, context=context).response.content
         
         buf = cStringIO.StringIO()
         buf.write(resp)

@@ -69,9 +69,6 @@ class ebay_ebay(osv.osv):
     def to_iso8601_format(self, cr, uid, timestamp, context=None):
         date = (parser.parse(timestamp))
         return date.isoformat()
-    
-    def format_pairs(self, cr, uid, pairs):
-        return json.dumps(pairs, indent=2)
         
     def dump_resp(self, cr, uid, api, context=None):
         print("ebay api dump")
@@ -287,19 +284,20 @@ class ebay_user(osv.osv):
             call_data=dict()
             call_data['UserID'] = user.name
             error_msg = 'Get the data for the specified user %s' % user.name
-            resp = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetUser', call_data, error_msg, context=context).response_dict()
+            reply = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetUser', call_data, error_msg, context=context).response.reply
             vals = dict()
-            user_dict = resp.User
+            user_dict = reply.User
             vals['email'] = user_dict.Email
             vals['feedback_rating_star'] = user_dict.FeedbackRatingStar
             vals['feedback_score'] = user_dict.FeedbackScore
             vals['positive_feedback_percent'] = user_dict.PositiveFeedbackPercent
             vals['registration_date'] = user_dict.RegistrationDate
             seller_info = user_dict.SellerInfo
-            vals['store_owner'] = seller_info.StoreOwner
-            vals['store_site'] = seller_info.StoreSite
-            vals['store_url'] = seller_info.StoreURL
-            vals['top_rated_seller'] = seller_info.TopRatedSeller
+            vals['store_owner'] = seller_info.StoreOwner == "true"
+            if vals['store_owner']:
+                vals['store_site'] = seller_info.StoreSite
+                vals['store_url'] = seller_info.StoreURL
+            vals['top_rated_seller'] = seller_info.get('TopRatedSeller', False)
             vals['site'] = user_dict.Site
             vals['unique_negative_feedback_count'] = user_dict.UniqueNegativeFeedbackCount
             vals['unique_neutral_feedback_count'] = user_dict.UniqueNeutralFeedbackCount
@@ -353,10 +351,10 @@ class ebay_user(osv.osv):
                 call_data['DetailLevel'] = 'ReturnAll'
                 call_data['OutputSelector'] = output_selector
                 error_msg = 'Get the seller list for the specified user %s' % user.name
-                resp = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetSellerList', call_data, error_msg, context=context).response_dict()
+                reply = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetSellerList', call_data, error_msg, context=context).response.reply
                 ebay_seller_list_obj = self.pool.get('ebay.seller.list')
-                has_more_items = resp.HasMoreItems == 'true'
-                items = resp.ItemArray.Item
+                has_more_items = reply.HasMoreItems == 'true'
+                items = reply.ItemArray.Item
                 if type(items) != list:
                     items = [items]
                 for item in items:
@@ -365,13 +363,13 @@ class ebay_user(osv.osv):
                     vals = dict()
                     vals['buy_it_now_price'] = float(item.BuyItNowPrice.value)
                     vals['currency'] = item.Currency
-                    if item.HitCount != None:
-                        vals['hit_count'] = int(item.HitCount)
+                    vals['hit_count'] = item.get('HitCount')
                     vals['item_id'] = item.ItemID
                     
                     listing_details = item.ListingDetails
                     vals['end_time'] = listing_details.EndTime
-                    vals['start_time'] = listing_details.StartTime
+                    start_time = listing_details.StartTime
+                    vals['start_time'] = start_time
                     vals['view_item_url'] = listing_details.ViewItemURL
                     
                     vals['quantity'] = int(item.Quantity)
@@ -383,11 +381,9 @@ class ebay_user(osv.osv):
                     vals['start_price'] = start_price
                     
                     vals['name'] = item.Title
-                    if item.WatchCount != None:
-                        vals['watch_count'] = int(item.WatchCount)
+                    vals['watch_count'] = item.get('WatchCount')
                     vals['user_id'] = user.id
                     
-                    start_time = datetime.strptime(listing_details.StartTime, '%Y-%m-%dT%H:%M:%S.%fZ')
                     delta_days = (time_now - start_time).days
                     if delta_days <= 0:
                         delta_days = 1
@@ -397,11 +393,13 @@ class ebay_user(osv.osv):
                     
                     vals['average_monthly_sales'] = average_monthly_sales
                     
-                    picture_url = item.PictureDetails.PictureURL
-                    if type(item.PictureDetails.PictureURL) != list:
-                        vals['picture'] = '<img src="%s" width="500"/>' % picture_url
-                    else:
-                        vals['picture'] = '<img src="%s" width="500"/>' % picture_url[0].value
+                    picture_details = item.get('PictureDetails')
+                    if picture_details:
+                        picture_url = picture_details.get('PictureURL', None)
+                        if type(picture_url) != list:
+                            vals['picture'] = '<img src="%s" width="500"/>' % picture_url
+                        else:
+                            vals['picture'] = '<img src="%s" width="500"/>' % picture_url[0]
                     
                     ebay_seller_list_obj.create(cr, uid, vals, context=context)
                 page_number = page_number + 1

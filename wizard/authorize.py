@@ -67,7 +67,7 @@ class authorize(osv.TransientModel):
                 api.config.set('devid', user.dev_id, force=True)
                 api.config.set('certid', user.cert, force=True)
                 api.execute('GetSessionID', {'RuName': user.ru_name})
-                session_id = api.response_dict().SessionID
+                session_id = api.response.reply.SessionID
                 user.write({'session_id': session_id})
         
             except ConnectionError as e:
@@ -88,11 +88,12 @@ class authorize(osv.TransientModel):
             api.config.set('devid', user.dev_id, force=True)
             api.config.set('certid', user.cert, force=True)
             api.execute('FetchToken', {'SessionID': session_id})
-            ebay_auth_token = api.response_dict().eBayAuthToken
-            hard_expiration_time = api.response_dict().HardExpirationTime
-            rest_token = api.response_dict().RESTToken
+            reply = api.response.reply
+            ebay_auth_token = reply.eBayAuthToken
+            hard_expiration_time = reply.HardExpirationTime
+            # rest_token = reply.RESTToken
             
-            user.write({'session_id': None, 'ebay_auth_token': ebay_auth_token, 'hard_expiration_time': hard_expiration_time, 'rest_token': rest_token})
+            user.write({'session_id': None, 'ebay_auth_token': ebay_auth_token, 'hard_expiration_time': hard_expiration_time})
         
         except ConnectionError as e:
             raise osv.except_osv(_('Warning!'), _('Get Session ID failed: %s' % e))
