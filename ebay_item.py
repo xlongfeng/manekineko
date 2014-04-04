@@ -617,10 +617,12 @@ class ebay_item(osv.osv):
                 'Currency': item.currency,
                 'Description': '<![CDATA[' + item.description + ']]>',
                 'DispatchTimeMax': item.dispatch_time_max,
+                'HitCounter': item.hit_counter,
                 'ListingDuration': item.listing_duration,
                 'Location': user.location,
                 'PaymentMethods': 'PayPal',
                 'PayPalEmailAddress': user.paypal_email_address,
+                'PrimaryCategory': dict(CategoryID=item.primary_category_id.category_id),
                 'Quantity': item.quantity,
                 'Site': item.site,
                 'SKU': item.id,
@@ -632,12 +634,11 @@ class ebay_item(osv.osv):
         
         if auction:
             if item.buy_it_now_price:
+                #item_dict['Item']['AutoPay'] = 'true'
                 item_dict['Item']['BuyItNowPrice'] = item.buy_it_now_price
         else:
+            #item_dict['Item']['AutoPay'] = 'true'
             item_dict['Item']['OutOfStockControl'] = 'true'
-            
-        if item.primary_category_id.condition_enabled:
-            item_dict['Item']['PrimaryCategory'] = dict(CategoryID=item.primary_category_id.category_id)
         
         picture_url = list()
         for picture in self.upload_pictures(cr, uid, user, item.eps_picture_ids, context=context):
@@ -646,11 +647,18 @@ class ebay_item(osv.osv):
                     or (not auction and not item.variation) \
                     or (not auction and item.variation and not item.variation_specific_value):
                     picture_url.append(picture.full_url)
+                    picture.write(dict(use_by_date=(datetime.now() + timedelta(90))))
         else:
             if len(picture_url) == 1:
-                item_dict['Item']['PictureDetails'] = dict(PictureURL=picture_url[0])
+                item_dict['Item']['PictureDetails'] = dict(
+                    PictureURL=picture_url[0],
+                    PhotoDisplay='PicturePack',
+                )
             elif len(picture_url) > 1:
-                item_dict['Item']['PictureDetails'] = dict(PictureURL=picture_url)
+                item_dict['Item']['PictureDetails'] = dict(
+                    PictureURL=picture_url,
+                    PhotoDisplay='PicturePack',
+                )
                 
         if item.buyer_requirement_details_id:
             brd = item.buyer_requirement_details_id
@@ -726,6 +734,16 @@ class ebay_item(osv.osv):
         
         return item_dict, auction
     
+    def item_revise(self, cr, uid, item, context=None):
+        item_dict, auction = self.item_create(cr, uid, item, context=context)
+        item_dict['Item']['DescriptionReviseMode'] = 'Replace'
+        item_dict['Item']['ItemID'] = item.item_id
+        if item.bid_count > 0 or item.quantity_sold > 0:
+            del item_dict['Item']['ListingDuration']
+            del item_dict['Item']['PrimaryCategory']
+            del item_dict['Item']['Title']
+        return item_dict, auction
+    
     def action_verify(self, cr, uid, ids, context=None):
         for item in self.browse(cr, uid, ids, context=context):
             user = item.ebay_user_id
@@ -741,8 +759,13 @@ class ebay_item(osv.osv):
             user = item.ebay_user_id
             item_dict, auction = self.item_create(cr, uid, item, context=context)
             ebay_ebay_obj = self.pool.get('ebay.ebay')
-            error_msg = 'Add item: %s' % item.name
-            call_name = "AddItem" if auction else "AddFixedPriceItem"
+            if item.item_id:
+                error_msg = 'Relist item: %s' % item.name
+                item_dict['Item']['ItemID'] = item.item_id
+                call_name = "RelistItem" if auction else "RelistFixedPriceItem"
+            else:
+                error_msg = 'Add item: %s' % item.name
+                call_name = "AddItem" if auction else "AddFixedPriceItem"
             api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
             ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
             vals = dict()
@@ -754,7 +777,21 @@ class ebay_item(osv.osv):
             item.write(vals)
             
     def action_revise(self, cr, uid, ids, context=None):
-        pass
+        for item in self.browse(cr, uid, ids, context=context):
+            user = item.ebay_user_id
+            item_dict, auction = self.item_revise(cr, uid, item, context=context)
+            ebay_ebay_obj = self.pool.get('ebay.ebay')
+            error_msg = 'Revise item: %s' % item.name
+            call_name = "ReviseItem" if auction else "ReviseFixedPriceItem"
+            api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
+            ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
+            vals = dict()
+            vals['end_time'] = api.response.reply.EndTime
+            vals['item_id'] = api.response.reply.ItemID
+            vals['start_time'] = api.response.reply.StartTime
+            vals['state'] = 'Active'
+            vals['response'] = api.response.json()
+            item.write(vals)
         
     def action_synchronize(self, cr, uid, ids, context=None):
         for item in self.browse(cr, uid, ids, context=context):
