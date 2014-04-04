@@ -70,6 +70,7 @@
                             <field name="cert"/>
                             <field name="ru_name"/>
                             <field name="hard_expiration_time"/>
+                            <field name="exclude_ship_to_location"/>
                         </group>
                     </sheet>
                 </form>

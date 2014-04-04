@@ -265,6 +265,8 @@ class ebay_user(osv.osv):
         'paypal_email_address': fields.char('Paypal Email Address'),
         'country': fields.char('Country', size=2),
         'location': fields.char('Location'),
+        # User Preferences
+        'exclude_ship_to_location': fields.text('Exclude Ship To Location', readonly=True),
     }
     
     _defaults = {
@@ -302,6 +304,17 @@ class ebay_user(osv.osv):
             vals['unique_negative_feedback_count'] = user_dict.UniqueNegativeFeedbackCount
             vals['unique_neutral_feedback_count'] = user_dict.UniqueNeutralFeedbackCount
             vals['unique_positive_feedback_count'] = user_dict.UniquePositiveFeedbackCount
+            
+            call_data=dict()
+            call_data['ShowSellerExcludeShipToLocationPreference'] = 'true'
+            error_msg = 'Get the user perferences for the user %s' % user.name
+            reply = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetUserPreferences', call_data, error_msg, context=context).response.reply
+            exclude_ship_to_location = reply.SellerExcludeShipToLocationPreferences.ExcludeShipToLocation
+            if type(exclude_ship_to_location) != list:
+                vals['exclude_ship_to_location'] = exclude_ship_to_location
+            else:
+                vals['exclude_ship_to_location'] = '|'.join(exclude_ship_to_location)
+                
             user.write(vals)
     
     def action_get_seller_list(self, cr, uid, ids, context=None):

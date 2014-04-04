@@ -633,6 +633,8 @@ class ebay_item(osv.osv):
         if auction:
             if item.buy_it_now_price:
                 item_dict['Item']['BuyItNowPrice'] = item.buy_it_now_price
+        else:
+            item_dict['Item']['OutOfStockControl'] = 'true'
             
         if item.primary_category_id.condition_enabled:
             item_dict['Item']['PrimaryCategory'] = dict(CategoryID=item.primary_category_id.category_id)
@@ -640,7 +642,10 @@ class ebay_item(osv.osv):
         picture_url = list()
         for picture in self.upload_pictures(cr, uid, user, item.eps_picture_ids, context=context):
             if picture.full_url:
-                picture_url.append(picture.full_url)
+                if auction \
+                    or (not auction and not item.variation) \
+                    or (not auction and item.variation and not item.variation_specific_value):
+                    picture_url.append(picture.full_url)
         else:
             if len(picture_url) == 1:
                 item_dict['Item']['PictureDetails'] = dict(PictureURL=picture_url[0])
@@ -700,6 +705,10 @@ class ebay_item(osv.osv):
                 ShippingServicePriority=sd.isso_shipping_service_priority,
                 ShipToLocation='Worldwide'
             )
+            
+            exclude_ship_to_location = user.exclude_ship_to_location
+            if exclude_ship_to_location:
+                shipping_details['ExcludeShipToLocation'] = user.exclude_ship_to_location.split('|')
             
             shipping_details['ShippingServiceOptions'] = dict(
                 ShippingService=sd.sso_shipping_service,
