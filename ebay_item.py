@@ -19,8 +19,10 @@
 #
 ##############################################################################
 
+import sys
 import io
 import base64
+import uuid
 import logging
 from datetime import datetime, timedelta, tzinfo
 import dateutil.parser as parser
@@ -390,6 +392,18 @@ class ebay_item(osv.osv):
     _name = "ebay.item"
     _description = "eBay item"
     
+    def _get_item_view_url(self, cr, uid, ids, field_name, arg, context):
+        if context is None:
+            context = {}
+        res = {}
+        for record in self.browse(cr, uid, ids, context=context):
+            if record.item_id:
+                if record.ebay_user_id.sandbox:
+                    res[record.id] = "http://cgi.sandbox.ebay.com/ws/eBayISAPI.dll?ViewItem&item=%s" % record.item_id
+                else:
+                    res[record.id] = "http://cgi.ebay.com/ws/eBayISAPI.dll?ViewItem&item=%s" % record.item_id
+        return res
+    
     _columns = {
         #'auto_pay': fields.boolean('AutoPay'),
         'buyer_requirement_details_id': fields.many2one('ebay.buyerrequirementdetails', 'Buyer Requirement', ondelete='set null'),
@@ -454,6 +468,7 @@ class ebay_item(osv.osv):
         'store_category_name': fields.char('Store Category'),
         'subtitle': fields.char('SubTitle', size=55),
         'name': fields.char('Title', size=80, required=True, select=True),
+        'uuid': fields.char('UUID', size=32),
         # Variations
         'variation_invalid': fields.boolean('Variation Invalid'),
         'variation': fields.boolean('Variation'),
@@ -463,16 +478,19 @@ class ebay_item(osv.osv):
         'variation_ids': fields.one2many('ebay.item.variation', 'ebay_item_id', 'Variantions'),
         # Item Status ------------
         'bid_count': fields.integer('Bit Count', readonly=True),
+        'end_time': fields.datetime('End Time', readonly=True),
         'hit_count': fields.integer('Hit Count', readonly=True),
         'item_id': fields.char('Item ID', size=38, readonly=True),
         'quantity_sold': fields.integer('Quantity Sold', readonly=True),
+        'start_time': fields.datetime('Start Time', readonly=True),
         'state': fields.selection([
             ('Draft', 'Draft'),
             ('Active', 'Active'),
             ('Completed', 'Completed'),
             ('Ended', 'Ended'),
         ], 'Listing Status', readonly=True),
-        'time_left': fields.datetime('Time Left', readonly=True),
+        'time_left': fields.char('Time Left', readonly=True),
+        'view_item_url': fields.function(_get_item_view_url, type='char', method="True", string='View Item'),
         'watch_count': fields.integer('Watch Count', readonly=True),
         'response': fields.text('Response', readonly=True),
         # Additional Info
@@ -491,16 +509,20 @@ class ebay_item(osv.osv):
         'buy_it_now_price': 19.99,
         'condition_id': 1000,
         'cross_border_trade': 'North America',
+        'country': 'CN',
+        'currency': 'USD',
         'disable_buyer_requirements': False,
         'dispatch_time_max': 2,
         'hit_counter': 'HiddenStyle',
         'include_recommendations': True,
         'listing_duration': 'GTC',
         'listing_type': 'FixedPriceItem',
+        'location': 'ShenZhen',
         'quantity': 1,
         'start_price': 9.99,
         'state': 'Draft',
         'site': 'US',
+        'uuid': lambda self, cr, uid, context: uuid.uuid1().hex,
     }
     
     def on_change_primary_category_id(self, cr, uid, id, primary_category_id, listing_type, context=None):
@@ -526,7 +548,22 @@ class ebay_item(osv.osv):
     def on_change_listing_type(self, cr, uid, id, primary_category_id, listing_type, context=None):
         return self.on_change_primary_category_id(cr, uid, id, primary_category_id, listing_type, context=context)
     
+    def copy(self, cr, uid, record_id, default=None, context=None):
+        if default is None:
+            default = {}
+
+        default.update({
+            'item_id': '',
+            'state': 'Draft',
+            'uuid': uuid.uuid1().hex,
+        })
+
+        return super(ebay_item, self).copy(cr, uid, record_id, default, context)
+    
     def upload_pictures(self, cr, uid, user, eps_pictures, context=None):
+        if not eps_pictures:
+            return list()
+        
         ebay_eps_picturesetmember = self.pool.get('ebay.eps.picturesetmember')
         # TODO
         time_now_pdt = datetime.now()
@@ -558,41 +595,144 @@ class ebay_item(osv.osv):
                     vals['ebay_eps_picture_id'] = picture.id
                     ebay_eps_picturesetmember.create(cr, uid, vals, context=context)
                     
+        return eps_pictures
+                    
     def item_create(self, cr, uid, item, context=None):
         user = item.ebay_user_id
-        self.upload_pictures(cr, uid, user, item.eps_picture_ids, context=context)
+        auction = item.listing_type == 'Chinese'
+        
         item_dict = {
             'Item': {
-                'Title': item.name,
-                'PrimaryCategory': {'CategoryID': item.primary_category_id.category_id},
                 'CategoryMappingAllowed': 'true',
-                #'Description': item.description,
-                'StartPrice': item.start_price,
+                "ConditionID": item.condition_id,
+                'Country': 'CN',
                 'Currency': item.currency,
-                'Quantity': item.quantity,
-                'ListingDuration': item.listing_duration,
+                'Description': '<![CDATA[' + item.description + ']]>',
                 'DispatchTimeMax': item.dispatch_time_max,
+                'ListingDuration': item.listing_duration,
+                'Location': 'ShenZhen',
                 'PaymentMethods': 'PayPal',
                 'PayPalEmailAddress': user.paypal_account,
+                'Quantity': item.quantity,
                 'Site': item.site,
+                'SKU': item.id,
+                'StartPrice': item.start_price,
+                'Title': '<![CDATA[' + item.name + ']]>',
+                #'UUID': item.uuid,
+                "ReturnPolicy": {
+                    "ReturnsAcceptedOption": "ReturnsAccepted",
+                    "RefundOption": "MoneyBack",
+                    "ReturnsWithinOption": "Days_30",
+                    "Description": "If you are not satisfied, return the book for refund.",
+                    "ShippingCostPaidByOption": "Buyer"
+                },
+                "ShippingDetails": {
+                    "ShippingType": "Flat",
+                    "ShippingServiceOptions": {
+                        "ShippingServicePriority": "1",
+                        "ShippingService": "USPSMedia",
+                        "ShippingServiceCost": "2.50"
+                    }
+                },
             }
         }
         
-        return item_dict, item.listing_type == 'Chinese'
+        if auction:
+            if item.buy_it_now_price:
+                item_dict['Item']['BuyItNowPrice'] = item.buy_it_now_price
+            
+        if item.primary_category_id.condition_enabled:
+            item_dict['Item']['PrimaryCategory'] = dict(CategoryID=item.primary_category_id.category_id)
+        
+        picture_url = list()
+        for picture in self.upload_pictures(cr, uid, user, item.eps_picture_ids, context=context):
+            if picture.full_url:
+                picture_url.append(picture.full_url)
+        else:
+            if len(picture_url) == 1:
+                item_dict['Item']['PictureDetails'] = dict(PictureURL=picture_url[0])
+            elif len(picture_url) > 1:
+                item_dict['Item']['PictureDetails'] = dict(PictureURL=picture_url)
+        
+        return item_dict, auction
     
     def action_verify(self, cr, uid, ids, context=None):
         for item in self.browse(cr, uid, ids, context=context):
-            print '#' * 60
-            print item.name
             user = item.ebay_user_id
             item_dict, auction = self.item_create(cr, uid, item, context=context)
             ebay_ebay_obj = self.pool.get('ebay.ebay')
-            error_msg = 'Verify the item: %s' % item.name
+            error_msg = 'Verify add item: %s' % item.name
             call_name = "VerifyAddItem" if auction else "VerifyAddFixedPriceItem"
             api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
-            #api.response_content()
-            ebay_ebay_obj.dump_resp(cr, uid, api.response_dict(), context=context)
+            item.write(dict(response=api.response.json()))
             
+    def action_upload(self, cr, uid, ids, context=None):
+        for item in self.browse(cr, uid, ids, context=context):
+            user = item.ebay_user_id
+            item_dict, auction = self.item_create(cr, uid, item, context=context)
+            ebay_ebay_obj = self.pool.get('ebay.ebay')
+            error_msg = 'Add item: %s' % item.name
+            call_name = "AddItem" if auction else "AddFixedPriceItem"
+            api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
+            ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
+            vals = dict()
+            vals['end_time'] = api.response.reply.EndTime
+            vals['item_id'] = api.response.reply.ItemID
+            vals['start_time'] = api.response.reply.StartTime
+            vals['state'] = 'Active'
+            vals['response'] = api.response.json()
+            item.write(vals)
+            
+    def action_revise(self, cr, uid, ids, context=None):
+        pass
+        
+    def action_synchronize(self, cr, uid, ids, context=None):
+        for item in self.browse(cr, uid, ids, context=context):
+            user = item.ebay_user_id
+            call_data = dict()
+            call_data['IncludeWatchCount'] = 'true'
+            call_data['ItemID'] = item.item_id
+            call_data['DetailLevel'] = 'ReturnAll'
+            call_data['OutputSelector'] =  [
+                'Item.HitCount',
+                'Item.ListingDetails',
+                'Item.SellingStatus',
+                'Item.TimeLeft',
+                'Item.WatchCount',
+            ]
+            error_msg = 'Get item: %s' % item.name
+            ebay_ebay_obj = self.pool.get('ebay.ebay')
+            api = ebay_ebay_obj.call(cr, uid, user, 'GetItem', call_data, error_msg, context=context)
+            reply = api.response.reply
+            ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
+            vals = dict()
+            vals['hit_count'] = reply.Item.HitCount
+            listing_details = reply.Item.ListingDetails
+            vals['end_time'] = listing_details.EndTime
+            vals['start_time'] = listing_details.StartTime
+            selling_status = reply.Item.SellingStatus
+            vals['bid_count'] = selling_status.BidCount
+            vals['quantity_sold'] = selling_status.QuantitySold
+            vals['state'] = selling_status.ListingStatus
+            vals['time_left'] = reply.Item.TimeLeft
+            vals['watch_count'] = reply.Item.WatchCount
+            item.write(vals)
+            
+    def action_end_listing(self, cr, uid, ids, context=None):
+        for item in self.browse(cr, uid, ids, context=context):
+            user = item.ebay_user_id
+            auction = item.listing_type == 'Chinese'
+            error_msg = 'End item: %s' % item.name
+            call_name = "EndItem" if auction else "EndFixedPriceItem"
+            call_data = dict()
+            call_data['EndingReason'] = 'NotAvailable'
+            call_data['ItemID'] = item.item_id
+            ebay_ebay_obj = self.pool.get('ebay.ebay')
+            api = ebay_ebay_obj.call(cr, uid, user, call_name, call_data, error_msg, context=context)
+            vals = dict()
+            vals['end_time'] = api.response.reply.EndTime
+            vals['state'] = 'Ended'
+            item.write(vals)
             
 ebay_item()
 

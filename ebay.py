@@ -19,6 +19,8 @@
 #
 ##############################################################################
 
+import os
+import sys
 import logging
 from datetime import datetime, timedelta, tzinfo
 import dateutil.parser as parser
@@ -39,16 +41,15 @@ import base64
 import urllib2
 
 import json
+
+sys.path.insert(0, '%s/ebaysdk-python/' % os.path.dirname(__file__))
+
 import ebaysdk
 from ebaysdk.utils import getNodeText
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
 _logger = logging.getLogger(__name__)
-
-#----------------------------------------------------------
-# Accounts
-#----------------------------------------------------------
 
 class ebay_ebay(osv.osv):
     _name = "ebay.ebay"
@@ -72,8 +73,21 @@ class ebay_ebay(osv.osv):
     def format_pairs(self, cr, uid, pairs):
         return json.dumps(pairs, indent=2)
         
-    def dump_resp(self, cr, uid, resp, context=None):
-        print((json.dumps(resp, indent=2)))
+    def dump_resp(self, cr, uid, api, context=None):
+        print("ebay api dump")
+
+        if api.warnings():
+            print("Warnings" + api.warnings())
+    
+        if api.response.content:
+            print("Call Success: %s in length" % len(api.response.content))
+    
+        print("Response code: %s" % api.response_code())
+        print("Response DOM1: %s" % api.response_dom())
+        print("Response ETREE: %s" % api.response.dom())
+    
+        print(api.response.content)
+        print(api.response.json())
     
     def _get_domainname_by_site_id(self, cr, uid, site_id, context=None):
         return self._site_id_domainname_dict.get(site_id, self._site_id_domainname_dict['0'])
