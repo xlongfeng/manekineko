@@ -72,9 +72,9 @@
                         <field name="variation_invalid" invisible="1"/>
                         <group string="Variations" attrs="{'invisible': [('variation_invalid','=',True)]}">
                             <field name="variation" attrs="{'readonly': [('state','!=','Draft')]}"/>
-                            <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)]}"/>
-                            <field name="variations_pictures" attrs="{'invisible': [('variation','=',False)]}"/>
-                            <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)]}"/>
+                            <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
+                            <field name="variations_pictures" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
+                            <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
                             <field name="variation_ids" attrs="{'invisible': [('variation','=',False)]}"/>
                         </group>
                         <group string="Pictures and Description">
@@ -441,10 +441,12 @@
                             <field name="mir_maximum_item_count"/>
                             <field name="mir_minimum_feedback_score"/>
                         </group>
+                        <!--
                         <group string="Verified User Requirements">
                             <field name="vur_minimum_feedback_score"/>
                             <field name="vur_verified_user"/>
                         </group>
+                        -->
                     </sheet>
                 </form>
             </field>

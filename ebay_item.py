@@ -295,11 +295,11 @@ class ebay_returnpolicy(osv.osv):
     _columns = {
         'name': fields.char('Name', required=True),
         'description': fields.text('Description', size=5000),
-        'refund_option': fields.char('RefundOption'),
+        'refund_option': fields.char('RefundOption', required=True),
         'restocking_feevalue_option': fields.char('RestockingFeeValueOption'),
         'returns_accepted_option': fields.char('ReturnsAcceptedOption', required=True),
-        'returns_within_option': fields.char('ReturnsWithinOption'),
-        'shipping_cost_paid_by_option': fields.char('ShippingCostPaidByOption'),
+        'returns_within_option': fields.char('ReturnsWithinOption', required=True),
+        'shipping_cost_paid_by_option': fields.char('ShippingCostPaidByOption', required=True),
         'warranty_duration_option': fields.char('WarrantyDurationOption'),
         'warranty_offered_option': fields.char('WarrantyOfferedOption'),
         'warranty_type_option': fields.char('WarrantyTypeOption'),
@@ -346,9 +346,13 @@ class ebay_shippingdetails(osv.osv):
     
     _defaults = {
         'isso_shipping_service': 'OtherInternational',
+        'isso_shipping_service_additional_cost': 0.0,
+        'isso_shipping_service_cost': 0.0,
         'isso_shipping_service_priority': 1,
         'sso_free_shipping': True,
         'sso_shipping_service': 'EconomyShippingFromOutsideUS',
+        'sso_shipping_service_additional_Cost': 0.0,
+        'sso_shipping_service_cost': 0.0,
         'sso_shipping_service_priority': 1,
         'shipping_type': 'Flat',
     }
@@ -452,10 +456,10 @@ class ebay_item(osv.osv):
         'postal_code': fields.char('PostalCode'),
         'primary_category_id': fields.many2one('ebay.category', 'Category', required=True, ondelete='set null'),
         'quantity': fields.integer('Quantity'),
-        'return_policy_id': fields.many2one('ebay.returnpolicy', 'Return Policy', ondelete='set null'),
+        'return_policy_id': fields.many2one('ebay.returnpolicy', 'Return Policy', required=True, ondelete='set null'),
         'schedule_time': fields.datetime('ScheduleTime'),
         'secondary_category_id': fields.many2one('ebay.category', '2nd Category', ondelete='set null'),
-        'shipping_details_id': fields.many2one('ebay.shippingdetails', 'Shipping Details', ondelete='set null'),
+        'shipping_details_id': fields.many2one('ebay.shippingdetails', 'Shipping Details', required=True, ondelete='set null'),
         'shipping_terms_in_description': fields.boolean('ShippingTermsInDescription'),
         'site': fields.char('Site', size=16),
         # SKU
@@ -605,35 +609,20 @@ class ebay_item(osv.osv):
             'Item': {
                 'CategoryMappingAllowed': 'true',
                 "ConditionID": item.condition_id,
-                'Country': 'CN',
+                'Country': user.country,
                 'Currency': item.currency,
                 'Description': '<![CDATA[' + item.description + ']]>',
                 'DispatchTimeMax': item.dispatch_time_max,
                 'ListingDuration': item.listing_duration,
-                'Location': 'ShenZhen',
+                'Location': user.location,
                 'PaymentMethods': 'PayPal',
-                'PayPalEmailAddress': user.paypal_account,
+                'PayPalEmailAddress': user.paypal_email_address,
                 'Quantity': item.quantity,
                 'Site': item.site,
                 'SKU': item.id,
                 'StartPrice': item.start_price,
                 'Title': '<![CDATA[' + item.name + ']]>',
                 #'UUID': item.uuid,
-                "ReturnPolicy": {
-                    "ReturnsAcceptedOption": "ReturnsAccepted",
-                    "RefundOption": "MoneyBack",
-                    "ReturnsWithinOption": "Days_30",
-                    "Description": "If you are not satisfied, return the book for refund.",
-                    "ShippingCostPaidByOption": "Buyer"
-                },
-                "ShippingDetails": {
-                    "ShippingType": "Flat",
-                    "ShippingServiceOptions": {
-                        "ShippingServicePriority": "1",
-                        "ShippingService": "USPSMedia",
-                        "ShippingServiceCost": "2.50"
-                    }
-                },
             }
         }
         
@@ -653,6 +642,74 @@ class ebay_item(osv.osv):
                 item_dict['Item']['PictureDetails'] = dict(PictureURL=picture_url[0])
             elif len(picture_url) > 1:
                 item_dict['Item']['PictureDetails'] = dict(PictureURL=picture_url)
+                
+        if item.buyer_requirement_details_id:
+            brd = item.buyer_requirement_details_id
+            buyer_requirement_details = dict(
+                LinkedPayPalAccount="true" if brd.linked_paypal_account else "false",
+                MinimumFeedbackScore=brd.minimum_feedback_score,
+                ShipToRegistrationCountry="true" if brd.ship2registration_country else "false",
+            )
+            
+            buyer_requirement_details['MaximumBuyerPolicyViolations'] = dict(
+                Count=brd.mbpv_count,
+                Period=brd.mbpv_period,
+            )
+            
+            buyer_requirement_details['MaximumItemRequirements'] = dict(
+                MaximumItemCount=brd.mir_maximum_item_count,
+                MinimumFeedbackScore=brd.mir_minimum_feedback_score,
+            )
+            
+            buyer_requirement_details['MaximumUnpaidItemStrikesInfo'] = dict(
+                Count=brd.muisi_count,
+                Period=brd.muisi_period,
+            )
+            '''
+            buyer_requirement_details['VerifiedUserRequirements'] = dict(
+                MinimumFeedbackScore=brd.vur_minimum_feedback_score,
+                VerifiedUser=brd.vur_verified_user,
+            )
+            '''
+            
+            item_dict['Item']['BuyerRequirementDetails'] = buyer_requirement_details
+            
+        if item.return_policy_id:
+            rp = item.return_policy_id
+            return_policy = dict(
+                RefundOption=rp.refund_option,
+                ReturnsAcceptedOption=rp.returns_accepted_option,
+                ReturnsWithinOption=rp.returns_within_option,
+                ShippingCostPaidByOption=rp.shipping_cost_paid_by_option,
+            )
+            if rp.description:
+                return_policy['description'] = '<![CDATA[' + rp.description + ']]>'
+            item_dict['Item']['ReturnPolicy'] = return_policy
+        
+        if item.shipping_details_id:
+            sd = item.shipping_details_id
+            shipping_details = dict()
+            shipping_details['InternationalShippingServiceOption'] = dict(
+                ShippingService=sd.isso_shipping_service,
+                ShippingServiceAdditionalCost=sd.sso_shipping_service_additional_Cost,
+                ShippingServiceCost=sd.isso_shipping_service_cost,
+                ShippingServicePriority=sd.isso_shipping_service_priority,
+                ShipToLocation='Worldwide'
+            )
+            
+            shipping_details['ShippingServiceOptions'] = dict(
+                ShippingService=sd.sso_shipping_service,
+                ShippingServicePriority=sd.sso_shipping_service_priority,
+            )
+            if sd.sso_free_shipping:
+                shipping_details['ShippingServiceOptions']['FreeShipping'] = "true"
+            else:
+                shipping_details['ShippingServiceOptions']['ShippingServiceAdditionalCost'] = sd.sso_shipping_service_additional_Cost
+                shipping_details['ShippingServiceOptions']['ShippingServiceCost'] = sd.sso_shipping_service_cost
+
+            shipping_details['ShippingType'] = sd.shipping_type
+            
+            item_dict['Item']['ShippingDetails'] = shipping_details
         
         return item_dict, auction
     

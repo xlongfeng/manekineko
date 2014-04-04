@@ -61,7 +61,9 @@
                             </group>
                         </group>
                         <group attrs="{'invisible': [('ownership','=',False)]}">
-                            <field name="paypal_account"/>
+                            <field name="paypal_email_address"/>
+                            <field name="country"/>
+                            <field name="location"/>
                             <field name="sale_site"/>
                             <field name="app_id"/>
                             <field name="dev_id"/>

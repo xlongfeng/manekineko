@@ -265,7 +265,9 @@ class ebay_user(osv.osv):
         'monthly_sales_volume': fields.integer('Monthly Sales Volume', readonly=True),
         # Additional Info
         'ebay_item_ids': fields.one2many('ebay.item', 'ebay_user_id', 'Items'),
-        'paypal_account': fields.char('Paypal Account'),
+        'paypal_email_address': fields.char('Paypal Email Address'),
+        'country': fields.char('Country', size=2),
+        'location': fields.char('Location'),
     }
     
     _defaults = {
@@ -274,6 +276,8 @@ class ebay_user(osv.osv):
         'ownership': 0,
         'sandbox': 0,
         'sale_site': '0',
+        'country': 'CN',
+        'location': 'ShenZhen',
     }
     
     _order = 'monthly_sales desc'
