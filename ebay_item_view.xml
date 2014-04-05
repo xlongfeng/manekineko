@@ -72,10 +72,28 @@
                         <field name="variation_invalid" invisible="1"/>
                         <group string="Variations" attrs="{'invisible': [('variation_invalid','=',True)]}">
                             <field name="variation" attrs="{'readonly': [('state','!=','Draft')]}"/>
-                            <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
-                            <field name="variations_pictures" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
+                            <field name="variation_modify_specific_name" attrs="{'invisible': [('state','!=','Active')]}"/>
+                            <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)], 'readonly': [('state','=','Active')]}"/>
                             <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
-                            <field name="variation_ids" attrs="{'invisible': [('variation','=',False)]}"/>
+                            <field name="variation_ids" attrs="{'invisible': [('variation','=',False)]}">
+                                <tree>
+                                    <field name="product_id"/>
+                                    <field name="variation_specifics"/>
+                                    <field name="start_price"/>
+                                    <field name="quantity"/>
+                                    <field name="deleted"/>
+                                    <field name="quantity_sold"/>
+                                </tree>
+                                <form string="Variation" version="7.0">
+                                    <group>
+                                        <field name="product_id" attrs="{'readonly': [('deleted','=',True)]}"/>
+                                        <field name="variation_specifics" attrs="{'readonly': [('deleted','=',True)]}"/>
+                                        <field name="start_price" attrs="{'readonly': [('deleted','=',True)]}"/>
+                                        <field name="quantity" attrs="{'readonly': [('deleted','=',True)]}"/>
+                                        <field name="deleted"/>
+                                    </group>
+                                </form>
+                            </field>
                         </group>
                         <group string="Pictures and Description">
                             <field name="eps_picture_ids" mode="kanban">
