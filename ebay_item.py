@@ -873,7 +873,7 @@ class ebay_item(osv.osv):
             user = item.ebay_user_id
             item_dict, auction = self.item_create(cr, uid, item, context=context)
             ebay_ebay_obj = self.pool.get('ebay.ebay')
-            if item.item_id and False:
+            if item.item_id:
                 error_msg = 'Relist item: %s' % item.name
                 item_dict['Item']['ItemID'] = item.item_id
                 call_name = "RelistItem" if auction else "RelistFixedPriceItem"
@@ -970,7 +970,6 @@ class ebay_item(osv.osv):
             ebay_ebay_obj = self.pool.get('ebay.ebay')
             api = ebay_ebay_obj.call(cr, uid, user, 'GetItem', call_data, error_msg, context=context)
             reply = api.response.reply
-            ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
             vals = dict()
             vals['hit_count'] = reply.Item.HitCount
             listing_details = reply.Item.ListingDetails
@@ -982,6 +981,27 @@ class ebay_item(osv.osv):
             vals['state'] = selling_status.ListingStatus
             vals['time_left'] = reply.Item.TimeLeft
             vals['watch_count'] = reply.Item.WatchCount
+            if  reply.Item.has_key('Variations'):
+                def _find_match_variation(variations, name_value_list, quantity_sold):
+                    values = ''
+                    if type(name_value_list) == list:
+                        for name_value in name_value_list:
+                            values += name_value.Value
+                    else:
+                        values = name_value_list.Value
+                    
+                    for variation in variations:
+                        specifices = variation.variation_specifics.replace(' ', '').replace('\n', '').replace('\r', '')
+                        if specifices == values:
+                            variation.write(dict(quantity_sold=quantity_sold))
+                            break
+                        
+                for variation in reply.Item.Variations.Variation:
+                    _find_match_variation(
+                        item.variation_ids,
+                        variation.VariationSpecifics.NameValueList,
+                        variation.SellingStatus.QuantitySold,
+                    )
             item.write(vals)
             return True
             
