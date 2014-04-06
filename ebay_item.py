@@ -31,6 +31,8 @@ from operator import itemgetter
 import time
 import pytz
 
+from jinja2 import Template
+
 from openerp import SUPERUSER_ID
 from openerp import pooler, tools
 from openerp.osv import fields, osv
@@ -717,14 +719,22 @@ class ebay_item(osv.osv):
     def item_create(self, cr, uid, item, context=None):
         user = item.ebay_user_id
         auction = item.listing_type == 'Chinese'
-        
+        if item.description_tmpl_id and item.description_tmpl_id.template:
+            template = Template(item.description_tmpl_id.template)
+            description = template.render(
+                member_id=user.name,
+                gallery=list(),
+                description=item.description,
+            ).replace('\r', '').replace('\n', '').replace('\t', '')
+        else:
+            description = item.description
         item_dict = {
             'Item': {
                 'CategoryMappingAllowed': 'true',
                 "ConditionID": item.condition_id,
                 'Country': user.country,
                 'Currency': item.currency,
-                'Description': '<![CDATA[' + item.description + ']]>',
+                'Description': '<![CDATA[' + description + ']]>',
                 'DispatchTimeMax': item.dispatch_time_max,
                 'HitCounter': item.hit_counter,
                 'ListingDuration': item.listing_duration,
@@ -1031,7 +1041,7 @@ class ebay_item_description_template(osv.osv):
     
     _columns = {
         'name': fields.char('Name', required=True, select=True),
-        'template': fields.html('Template'),
+        'template': fields.text('Template'),
         'ebay_item_ids': fields.one2many('ebay.item', 'description_tmpl_id', 'Item'),
     }
     

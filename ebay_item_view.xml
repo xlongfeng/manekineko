@@ -154,7 +154,7 @@
                                 </form>
                             </field>
                             <field name="description_tmpl_id"/>
-                            <field name="description"/>
+                            <field name="description" widget="ckeditor"/>
                         </group>
                         <group string="Shipping and Policies">
                             <group>
