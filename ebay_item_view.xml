@@ -87,10 +87,11 @@
                                 <form string="Variation" version="7.0">
                                     <group>
                                         <field name="product_id" attrs="{'readonly': [('deleted','=',True)]}"/>
-                                        <field name="variation_specifics" attrs="{'readonly': [('deleted','=',True)]}"/>
+                                        <field name="variation_specifics" attrs="{'readonly': ['|',('deleted','=',True),('active','=',True)]}"/>
                                         <field name="start_price" attrs="{'readonly': [('deleted','=',True)]}"/>
                                         <field name="quantity" attrs="{'readonly': [('deleted','=',True)]}"/>
                                         <field name="deleted"/>
+                                        <field name="active" invisible='1'/>
                                     </group>
                                 </form>
                             </field>

@@ -381,6 +381,14 @@ class ebay_item_variation(osv.osv):
     _name = "ebay.item.variation"
     _description = "eBay item variation"
     
+    def _get_item_active(self, cr, uid, ids, field_name, arg, context):
+        if context is None:
+            context = {}
+        res = {}
+        for record in self.browse(cr, uid, ids, context=context):
+            res[record.id] = True if record.ebay_item_id.state == 'Active' else False
+        return res
+    
     _columns = {
         'quantity': fields.integer('Quantity', required=True),
         'product_id': fields.many2one('product.product', 'Product', ondelete='no action'),
@@ -392,6 +400,7 @@ class ebay_item_variation(osv.osv):
         '''),
         'quantity_sold': fields.integer('Quantity Sold', readonly=True),
         'deleted': fields.boolean('Deleted'),
+        'active': fields.function(_get_item_active, type='boolean', method="True", string='Active'),
         'ebay_item_id': fields.many2one('ebay.item', 'Item', ondelete='cascade'),
     }
     
@@ -404,8 +413,18 @@ class ebay_item_variation(osv.osv):
     
     _order = 'variation_specifics'
     
-    def unlink(self, cr, uid, ids, context=None):
-        return self.write(cr, uid, ids, dict(deleted=True), context=context)
+    def unlink(self, cr, uid, ids, context=None, check=True):
+        if check:
+            for variation in self.browse(cr, uid, ids, context=context):
+                if not variation.active:
+                    variation.unlink(check=False)
+                else:
+                    variation.write(dict(deleted=True))
+        else:
+            return super(ebay_item_variation, self).unlink(cr, uid, ids, context=context)
+        
+        return True
+    
     
 ebay_item_variation()
 
@@ -625,6 +644,75 @@ class ebay_item(osv.osv):
                     ebay_eps_picturesetmember.create(cr, uid, vals, context=context)
                     
         return eps_pictures
+    
+    def variation_dict(self, cr, uid, item, item_dict, eps_pictures, context=None):
+        user = item.ebay_user_id
+        item_dict['Item']['Variations'] = dict()
+        specific_names = item.variation_specific_name.replace(' ', '').split('|')
+        pictures = dict(
+            VariationSpecificName=specific_names[0],
+            VariationSpecificPictureSet=dict()
+        )
+        
+        variants = list()
+        for variant in item.variation_ids:
+            index = 0
+            name_value_list = list()
+            for value in variant.variation_specifics.replace(' ', '').splitlines():
+                name_value_list.append(dict(
+                    Name=specific_names[index],
+                    Value=value,
+                ))
+                index+=1
+            v = dict(
+                    Quantity=variant.quantity,
+                    SKU=variant.product_id.id,
+                    StartPrice=variant.start_price,
+                    VariationSpecifics=dict(
+                        NameValueList=name_value_list if len(name_value_list) > 1 else name_value_list[0],
+                    )
+                )
+            if variant.deleted:
+                if variant.quantity_sold > 0:
+                    v['Quantity'] = 0
+                else:
+                    v['Delete'] = 'true'
+            variants.append(v)
+        item_dict['Item']['Variations']['Variation'] = variants if len(variants) > 1 else variants[0]
+        
+        name_value_list = list()
+        index = 0
+        for specific_values in item.variation_specifics_set.splitlines():
+            if specific_values:
+                specific_values = specific_values.replace(' ', '').split('|')
+                name_value_list.append(dict(
+                    Name=specific_names[index],
+                    Value=specific_values if len(specific_values) > 1 else specific_values[0]
+                ))
+                index+=1
+        item_dict['Item']['Variations']['VariationSpecificsSet'] = dict(
+            NameValueList=name_value_list if len(name_value_list) > 1 else name_value_list[0]
+        )
+        
+        picture_set = dict()
+        for picture in eps_pictures:
+            if picture.full_url and picture.variation_specific_value:
+                # omit picture not in specific values
+                if picture.variation_specific_value not in name_value_list[0]['Value']:
+                    continue
+                if picture.variation_specific_value not in picture_set:
+                    picture_set[picture.variation_specific_value] = list()
+                picture_set[picture.variation_specific_value].append(picture.full_url)
+        variation_specific_picture_set = list()
+        for key, value in picture_set.items():
+            variation_specific_picture_set.append(dict(
+                PictureURL=value if len(value) > 1 else value[0],
+                VariationSpecificValue=key,
+            ))
+        pictures['VariationSpecificPictureSet'] = variation_specific_picture_set \
+            if len(variation_specific_picture_set) > 1 \
+            else variation_specific_picture_set[0]
+        item_dict['Item']['Variations']['Pictures'] = pictures
                     
     def item_create(self, cr, uid, item, context=None):
         user = item.ebay_user_id
@@ -684,71 +772,7 @@ class ebay_item(osv.osv):
             # Variations
             if not item.variation_invalid and item.variation:
                 del item_dict['Item']['Quantity']
-                item_dict['Item']['Variations'] = dict()
-                specific_names = item.variation_specific_name.replace(' ', '').split('|')
-                pictures = dict(
-                    VariationSpecificName=specific_names[0],
-                    VariationSpecificPictureSet=dict()
-                )
-                
-                variants = list()
-                for variant in item.variation_ids:
-                    index = 0
-                    name_value_list = list()
-                    for value in variant.variation_specifics.replace(' ', '').splitlines():
-                        name_value_list.append(dict(
-                            Name=specific_names[index],
-                            Value=value,
-                        ))
-                        index+=1
-                        
-                    variants.append(
-                        dict(
-                            Quantity=variant.quantity,
-                            SKU=variant.product_id.id,
-                            StartPrice=variant.start_price,
-                            VariationSpecifics=dict(
-                                NameValueList=name_value_list if len(name_value_list) > 1 else name_value_list[0],
-                            )
-                        )
-                    )
-                item_dict['Item']['Variations']['Variation'] = variants if len(variants) > 1 else variants[0]
-                
-                name_value_list = list()
-                index = 0
-                for specific_values in item.variation_specifics_set.splitlines():
-                    if specific_values:
-                        specific_values = specific_values.replace(' ', '').split('|')
-                        name_value_list.append(dict(
-                            Name=specific_names[index],
-                            Value=specific_values if len(specific_values) > 1 else specific_values[0]
-                        ))
-                        index+=1
-                item_dict['Item']['Variations']['VariationSpecificsSet'] = dict(
-                    NameValueList=name_value_list if len(name_value_list) > 1 else name_value_list[0]
-                )
-                
-                picture_set = dict()
-                for picture in eps_pictures:
-                    if picture.full_url and picture.variation_specific_value:
-                        # omit picture not in specific values
-                        if picture.variation_specific_value not in name_value_list[0]['Value']:
-                            continue
-                        if picture.variation_specific_value not in picture_set:
-                            picture_set[picture.variation_specific_value] = list()
-                        picture_set[picture.variation_specific_value].append(picture.full_url)
-                variation_specific_picture_set = list()
-                for key, value in picture_set.items():
-                    variation_specific_picture_set.append(dict(
-                        PictureURL=value if len(value) > 1 else value[0],
-                        VariationSpecificValue=key,
-                    ))
-                pictures['VariationSpecificPictureSet'] = variation_specific_picture_set \
-                    if len(variation_specific_picture_set) > 1 \
-                    else variation_specific_picture_set[0]
-                item_dict['Item']['Variations']['Pictures'] = pictures
-        print 'x' * 60
-        print item_dict['Item']['Variations']
+                self.variation_dict(cr, uid, item, item_dict, eps_pictures, context=context)
         if item.buyer_requirement_details_id:
             brd = item.buyer_requirement_details_id
             buyer_requirement_details = dict(
@@ -842,13 +866,14 @@ class ebay_item(osv.osv):
             call_name = "VerifyAddItem" if auction else "VerifyAddFixedPriceItem"
             api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
             item.write(dict(response=api.response.json()))
+            return True
             
     def action_upload(self, cr, uid, ids, context=None):
         for item in self.browse(cr, uid, ids, context=context):
             user = item.ebay_user_id
             item_dict, auction = self.item_create(cr, uid, item, context=context)
             ebay_ebay_obj = self.pool.get('ebay.ebay')
-            if item.item_id:
+            if item.item_id and False:
                 error_msg = 'Relist item: %s' % item.name
                 item_dict['Item']['ItemID'] = item.item_id
                 call_name = "RelistItem" if auction else "RelistFixedPriceItem"
@@ -865,22 +890,65 @@ class ebay_item(osv.osv):
             vals['state'] = 'Active'
             vals['response'] = api.response.json()
             item.write(vals)
+            return True
             
     def action_revise(self, cr, uid, ids, context=None):
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
         for item in self.browse(cr, uid, ids, context=context):
             user = item.ebay_user_id
+            
+            if item.variation:
+                # delete variation firstly
+                has_deleted_variation = False
+                for variation in item.variation_ids:
+                    if variation.deleted:
+                        has_deleted_variation = True
+                        break
+                if has_deleted_variation:
+                    item_dict, auction = self.item_revise(cr, uid, item, context=context)
+                    error_msg = 'Revise item: %s' % item.name
+                    call_name = "ReviseFixedPriceItem"
+                    api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
+                    for variation in item.variation_ids:
+                        if variation.deleted:
+                            variation.unlink(check=False)
+                            
+                # modify specific name secondly
+                if item.variation_modify_specific_name:
+                    item_dict, auction = self.item_revise(cr, uid, item, context=context)
+                    del item_dict['Item']['Variations']
+                    variation_specific_name = item.variation_specific_name
+                    modify_name_nodes = list()
+                    for modify_name in item.variation_modify_specific_name.replace(' ', '').splitlines():
+                        modify_name = modify_name.split('|')
+                        modify_name_nodes.append(dict(
+                            ModifyName=dict(
+                                Name=modify_name[0],
+                                NewName=modify_name[1],
+                            )
+                        ))
+                        variation_specific_name = variation_specific_name.replace(modify_name[0], modify_name[1])
+                    item_dict['Item']['Variations'] = dict(
+                        ModifyNameList=modify_name_nodes if len(modify_name_nodes) > 1 else modify_name_nodes[0]
+                    )
+                    error_msg = 'Revise item: %s' % item.name
+                    call_name = "ReviseFixedPriceItem"
+                    api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
+                    item.write(dict(
+                        variation_modify_specific_name='',
+                        variation_specific_name=variation_specific_name,
+                    ))
+                    item.refresh()
+            
             item_dict, auction = self.item_revise(cr, uid, item, context=context)
-            ebay_ebay_obj = self.pool.get('ebay.ebay')
             error_msg = 'Revise item: %s' % item.name
             call_name = "ReviseItem" if auction else "ReviseFixedPriceItem"
             api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
             vals = dict()
             vals['end_time'] = api.response.reply.EndTime
-            vals['item_id'] = api.response.reply.ItemID
-            vals['start_time'] = api.response.reply.StartTime
-            vals['state'] = 'Active'
             vals['response'] = api.response.json()
             item.write(vals)
+            return True
         
     def action_synchronize(self, cr, uid, ids, context=None):
         # TODO need to update variation quantity sold
@@ -895,6 +963,7 @@ class ebay_item(osv.osv):
                 'Item.ListingDetails',
                 'Item.SellingStatus',
                 'Item.TimeLeft',
+                'Item.Variations.Variation',
                 'Item.WatchCount',
             ]
             error_msg = 'Get item: %s' % item.name
@@ -914,6 +983,7 @@ class ebay_item(osv.osv):
             vals['time_left'] = reply.Item.TimeLeft
             vals['watch_count'] = reply.Item.WatchCount
             item.write(vals)
+            return True
             
     def action_end_listing(self, cr, uid, ids, context=None):
         for item in self.browse(cr, uid, ids, context=context):
@@ -927,9 +997,11 @@ class ebay_item(osv.osv):
             ebay_ebay_obj = self.pool.get('ebay.ebay')
             api = ebay_ebay_obj.call(cr, uid, user, call_name, call_data, error_msg, context=context)
             vals = dict()
+            vals['variation_modify_specific_name'] = ''
             vals['end_time'] = api.response.reply.EndTime
             vals['state'] = 'Ended'
             item.write(vals)
+            return True
             
 ebay_item()
 
