@@ -20,8 +20,9 @@
 ##############################################################################
 import ebay
 import ebay_item
-import sale
+import photobucket
 import res_partner
+import sale
 import wizard
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
 

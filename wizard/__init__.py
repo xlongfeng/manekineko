@@ -22,5 +22,6 @@ import authorize
 import get_category_features
 import get_ebay_details
 import get_order
+import photobucket_authorize
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
 
