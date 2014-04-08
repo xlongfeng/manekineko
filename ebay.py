@@ -239,7 +239,7 @@ class ebay_user(osv.osv):
         # Selleris
         'seller_list_ids': fields.one2many('ebay.seller.list', 'user_id', 'Seller Lists', readonly=True),
         # Application keys for authorization
-        'ownership': fields.boolean('Ownership'),
+        'ownership': fields.boolean('Ownership', readonly=True),
         'sandbox': fields.boolean('Sandbox'),
         'sale_site': fields.selection([
             ('0', 'US'),
@@ -280,6 +280,24 @@ class ebay_user(osv.osv):
     }
     
     _order = 'monthly_sales desc'
+    
+    _sql_constraints = [
+        ('name_uniq', 'unique(name)', 'User ID must be unique!'),
+    ]
+    
+    def copy(self, cr, uid, id, default=None, context=None):
+        if default is None:
+            default = {}
+        
+        name = self.read(cr, uid, id, ['name'], context=context)['name']
+        default = default.copy()
+        default.update({
+            'name': name + _(' (Copy)'),
+            'session_id': '',
+            'ebay_auth_token': '',
+        })
+
+        return super(ebay_user, self).copy(cr, uid, id, default, context)
     
     def action_get_user(self, cr, uid, ids, context=None):
         for user in self.browse(cr, uid, ids, context=context):

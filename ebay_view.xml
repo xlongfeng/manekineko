@@ -39,7 +39,7 @@
                         </div>
                         <group>
                             <group>
-                                <field name="ownership"/>
+                                <field name="ownership" invisible="1"/>
                                 <field name="sandbox"/>
                                 <field name="email" attrs="{'invisible': [('ownership','=',False)]}"/>
                                 <field name="site"/>
@@ -70,7 +70,6 @@
                             <field name="cert"/>
                             <field name="ru_name"/>
                             <field name="hard_expiration_time"/>
-                            <field name="exclude_ship_to_location"/>
                         </group>
                     </sheet>
                 </form>

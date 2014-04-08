@@ -597,17 +597,18 @@ class ebay_item(osv.osv):
     def on_change_listing_type(self, cr, uid, id, primary_category_id, listing_type, context=None):
         return self.on_change_primary_category_id(cr, uid, id, primary_category_id, listing_type, context=context)
     
-    def copy(self, cr, uid, record_id, default=None, context=None):
+    def copy(self, cr, uid, id, default=None, context=None):
         if default is None:
             default = {}
-
+        
         default.update({
             'item_id': '',
             'state': 'Draft',
+            'name': name + _(' (Copy)'),
             'uuid': uuid.uuid1().hex,
         })
 
-        return super(ebay_item, self).copy(cr, uid, record_id, default, context)
+        return super(ebay_item, self).copy(cr, uid, id, default, context)
     
     def upload_pictures(self, cr, uid, user, eps_pictures, context=None):
         if not eps_pictures:
@@ -730,6 +731,7 @@ class ebay_item(osv.osv):
             description = item.description
         item_dict = {
             'Item': {
+                'ApplicationData': 'oe-%s' % item.id,
                 'CategoryMappingAllowed': 'true',
                 "ConditionID": item.condition_id,
                 'Country': user.country,
@@ -747,7 +749,7 @@ class ebay_item(osv.osv):
                 'SKU': item.product_id.id,
                 'StartPrice': item.start_price,
                 'Title': '<![CDATA[' + item.name + ']]>',
-                #'UUID': item.uuid,
+                'UUID': item.uuid,
             }
         }
         
