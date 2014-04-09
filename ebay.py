@@ -282,7 +282,7 @@ class ebay_user(osv.osv):
     _order = 'monthly_sales desc'
     
     _sql_constraints = [
-        ('name_uniq', 'unique(name)', 'User ID must be unique!'),
+        ('name_uniq', 'unique(name, sandbox)', 'User ID must be unique!'),
     ]
     
     def copy(self, cr, uid, id, default=None, context=None):

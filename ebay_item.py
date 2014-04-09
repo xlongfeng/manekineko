@@ -109,6 +109,24 @@ class ebay_category(osv.osv):
         'sandbox': False
     }
     
+    _sql_constraints = [
+        ('category_id_uniq', 'unique(category_id, sandbox)', 'Category ID must be unique!'),
+    ]
+    
+    def search_category(self, cr, uid, category_id, category_name, sandbox, context=None):
+        domain = [('category_id', '=', category_id), ('sandbox', '=', sandbox)]
+        ids = self.search(cr, uid, domain, context=context)
+        if ids:
+            id = ids[0]
+        else:
+            vals = dict(
+                name=category_name,
+                category_id=category_id,
+                sandbox=sandbox,
+            )
+            id = self.create(cr, uid, vals, context=context)
+        return id
+    
     def action_update(self, cr, uid, ids, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         for category in self.browse(cr, uid, ids, context=context):
@@ -131,12 +149,13 @@ class ebay_category(osv.osv):
             resp_dict = api.response_dict()
             category_feature = resp_dict.Category
             vals = dict()
-            vals['condition_enabled'] = category_feature.ConditionEnabled
-            readability = "%s | %s\n" % ("DisplayName", "ID")
-            readability += "%s\n" % ("-" * 64,)
-            for condition in category_feature.ConditionValues.Condition:
-                readability += "%s | %s\n" % (condition.DisplayName, condition.ID)
-            vals['condition_values'] = readability
+            if category_feature.has_key('ConditionEnabled'):
+                vals['condition_enabled'] = category_feature.ConditionEnabled
+                readability = "%s | %s\n" % ("DisplayName", "ID")
+                readability += "%s\n" % ("-" * 64,)
+                for condition in category_feature.ConditionValues.Condition:
+                    readability += "%s | %s\n" % (condition.DisplayName, condition.ID)
+                vals['condition_values'] = readability
             vals['free_gallery_plus_enabled'] = category_feature.get('FreeGalleryPlusEnabled', 'false') == 'true'
             vals['free_picture_pack_enabled'] = category_feature.get('FreePicturePackEnabled', 'false') == 'true'
             vals['handling_time_enabled'] = category_feature.get('HandlingTimeEnabled', 'false') == 'true'
@@ -475,7 +494,15 @@ class ebay_item(osv.osv):
         Name2=Value2
         Name3=Value3
         """),
-        'listing_duration': fields.char('Duration', size=8),
+        'listing_duration': fields.selection([
+            ('Days_1', '1 days'),
+            ('Days_3', '3 days'),
+            ('Days_5', '5 days'),
+            ('Days_7', '7 days'),
+            ('Days_10', '10 days'),
+            ('Days_30', '30 days'),
+            ('GTC', 'GTC'),
+            ],'Duration'),
         'listing_type': fields.selection([
             #('AdType', 'AdType'),
             ('Chinese', 'Auction'),
@@ -494,13 +521,13 @@ class ebay_item(osv.osv):
         'postal_code': fields.char('PostalCode'),
         'primary_category_id': fields.many2one('ebay.category', 'Category', required=True, ondelete='set null'),
         'quantity': fields.integer('Quantity'),
-        'return_policy_id': fields.many2one('ebay.returnpolicy', 'Return Policy', required=True, ondelete='set null'),
+        'return_policy_id': fields.many2one('ebay.returnpolicy', 'Return Policy', ondelete='set null'),
         'schedule_time': fields.datetime('ScheduleTime'),
         'secondary_category_id': fields.many2one('ebay.category', '2nd Category', ondelete='set null'),
-        'shipping_details_id': fields.many2one('ebay.shippingdetails', 'Shipping Details', required=True, ondelete='set null'),
+        'shipping_details_id': fields.many2one('ebay.shippingdetails', 'Shipping Details', ondelete='set null'),
         'shipping_terms_in_description': fields.boolean('ShippingTermsInDescription'),
         'site': fields.char('Site', size=16),
-        # SKU
+        # SKU, id|product_id
         'product_id': fields.many2one('product.product', 'Product', ondelete='set null'),
         'start_price': fields.float('StartPrice', required=True),
         # Storefront
@@ -731,7 +758,6 @@ class ebay_item(osv.osv):
             description = item.description
         item_dict = {
             'Item': {
-                'ApplicationData': 'oe-%s' % item.id,
                 'CategoryMappingAllowed': 'true',
                 "ConditionID": item.condition_id,
                 'Country': user.country,
@@ -746,7 +772,7 @@ class ebay_item(osv.osv):
                 'PrimaryCategory': dict(CategoryID=item.primary_category_id.category_id),
                 'Quantity': item.quantity,
                 'Site': item.site,
-                'SKU': item.product_id.id,
+                'SKU': '%s|%s' % (item.id, item.product_id.id),
                 'StartPrice': item.start_price,
                 'Title': '<![CDATA[' + item.name + ']]>',
                 'UUID': item.uuid,
