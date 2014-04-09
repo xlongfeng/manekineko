@@ -69,6 +69,7 @@ class ebay_synchronize_item(osv.TransientModel):
         ebay_item_obj = self.pool.get('ebay.item')
         ebay_category_obj = self.pool.get('ebay.category')
         ebay_eps_picture_obj = self.pool.get('ebay.eps.picture')
+        ebay_item_variation = self.pool.get('ebay.item.variation')
         
         img_path = openerp.modules.get_module_resource('ebay', 'static/src/img', 'icon.png')
         img_file = open(img_path, 'rb')
@@ -129,13 +130,16 @@ class ebay_synchronize_item(osv.TransientModel):
                 listing_details = item.ListingDetails
                 selling_status = item.SellingStatus
                 
+                def update_item_status():
+                    pass
+                
                 # find item sku first
                 if sku:
                     data = sku.split('|')
                     if len(data) == 2:
                         id = data[0]
                         product_id = data[1]
-                        if item_id.isdigit() and id.isdigit():
+                        if id.isdigit() and product_id.isdigit():
                             ebay_item = ebay_item_obj.browse(cr, uid, int(id), context=context)
                             if ebay_item.id:
                                 # update listing
@@ -185,32 +189,89 @@ class ebay_synchronize_item(osv.TransientModel):
                 
                 vals['ebay_user_id'] = user.id
                 
-                if item.has_key('PictureDetails'):
-                    picture_details = item.PictureDetails
-                
-                id = ebay_item_obj.create(cr, uid, vals, context=context)
-                
-                # PictureDetails
-                picture_index = 0
-                if item.has_key('PictureDetails') and item.PictureDetails.has_key('PictureURL'):
-                    picture_urls = item.PictureDetails.PictureURL
+                picture_index = 1
+                eps_pictures = list()
+                def get_eps_pictures(picture_index, picture_urls, specific_value = None):
+                    _eps_pictures = list()
                     if type(picture_urls) != list:
                         picture_urls = [picture_urls]
                     for url in picture_urls:
                         vals = dict(
                             name=str(picture_index),
                             full_url=url,
-                            use_by_date = fields.datetime.now(),
-                            ebay_item_id = id,
+                            use_by_date = fields.datetime.now() + timedelta(90),
                         )
-                        try:
-                            vals['image'] = base64.encodestring(urllib2.urlopen(url).read())
-                        except:
-                            vals['image'] = img_def
+                        if specific_value:
+                            vals['variation_specific_value'] = specific_value
                         picture_index += 1
-                        ebay_eps_picture_obj.create(cr, uid, vals, context=context)
+                        _eps_pictures.append(vals)
+                    return picture_index, _eps_pictures
                 
-                # Variations
+                if item.has_key('PictureDetails') and item.PictureDetails.has_key('PictureURL'):
+                    picture_index, _eps_pictures = get_eps_pictures(picture_index, item.PictureDetails.PictureURL)
+                    eps_pictures.extend(_eps_pictures)
+                
+                item_variation = list()
+                if item.has_key('Variations'):
+                    call_data = dict()
+                    call_data['ItemID'] = item.ItemID
+                    call_data['DetailLevel'] = 'ReturnAll'
+                    call_data['OutputSelector'] =  [
+                        'Item.Variations',
+                    ]
+                    error_msg = 'Get item: %s' % item.Title
+                    reply = ebay_ebay_obj.call(cr, uid, user, 'GetItem', call_data, error_msg, context=context).response.reply
+                    
+                    _variations = reply.Item.Variations
+                    _pictures = _variations.Pictures
+                    vals['variation_invalid'] = False
+                    vals['variation'] = True
+                    vals['variation_specific_name'] = _pictures.VariationSpecificName
+                    
+                    if _pictures.has_key('VariationSpecificPictureSet'):
+                        picture_set = _pictures.VariationSpecificPictureSet
+                        if type(picture_set) != list:
+                            picture_set = [picture_set]
+                        for picture in picture_set:
+                            picture_index, _eps_pictures = get_eps_pictures(picture_index, picture.PictureURL, picture.VariationSpecificValue)
+                            eps_pictures.extend(_eps_pictures)
+                            
+                    def get_specifices_set(name_value_list):
+                        variation_specifics_set = ''
+                        if type(name_value_list) != list:
+                            name_value_list = [name_value_list]
+                        for name_value in name_value_list:
+                            values = name_value.Value
+                            if type(values) != list:
+                                values = [values]
+                            variation_specifics_set = variation_specifics_set + '|'.join(values) +'\n'
+                        return variation_specifics_set
+                    
+                    vals['variation_specifics_set'] = get_specifices_set(_variations.VariationSpecificsSet.NameValueList)
+                    
+                    for _v in _variations.Variation:
+                        item_variation.append(dict(
+                            product_id=_v.SKU if _v.has_key('SKU') and _v.SKU.isdigit() else '',
+                            quantity=_v.Quantity,
+                            start_price=_v.StartPrice.value,
+                            variation_specifics=get_specifices_set(_v.VariationSpecifics.NameValueList),
+                            quantity_sold=_v.SellingStatus.QuantitySold,
+                        ))
+                
+                id = ebay_item_obj.create(cr, uid, vals, context=context)
+                
+                for picture in eps_pictures:
+                    picture['ebay_item_id'] = id
+                    url = picture['full_url']
+                    try:
+                        picture['image'] = base64.encodestring(urllib2.urlopen(url).read())
+                    except:
+                        picture['image'] = img_def
+                    ebay_eps_picture_obj.create(cr, uid, picture, context=context)
+                    
+                for variation in item_variation:
+                    variation['ebay_item_id'] = id
+                    ebay_item_variation.create(cr, uid, variation, context=context)
                 
                 new_count += 1
             page_number = page_number + 1

@@ -631,7 +631,6 @@ class ebay_item(osv.osv):
         default.update({
             'item_id': '',
             'state': 'Draft',
-            'name': name + _(' (Copy)'),
             'uuid': uuid.uuid1().hex,
         })
 
