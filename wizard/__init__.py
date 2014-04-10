@@ -19,8 +19,6 @@
 #
 ##############################################################################
 import authorize
-import get_category_features
-import get_ebay_details
 import get_order
 import item_end
 import item_revise

@@ -2,7 +2,7 @@
 <openerp>
     <data>
         
-        <menuitem id="menu_ebay_listing_activity" name="Listing Activity" sequence="90" parent="menu_ebay_top"/>
+        <menuitem id="menu_ebay_listing_activity" name="Listing Activity" sequence="60" parent="menu_ebay_top"/>
         
         <record model="ir.ui.view" id="ebay_item_form_view">
             <field name="name">ebay item form</field>
