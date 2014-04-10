@@ -266,6 +266,7 @@ class ebay_eps_picture(osv.osv):
     
     _columns = {
         'name': fields.char('Name', required=True),
+        'dummy': fields.boolean('Dummy', help="This a dummy picture for optimize speed sync seller active item, you must sync picture to fecth the real image"),
         # image: all image fields are base64 encoded and PIL-supported
         'image': fields.binary("Image", required=True,
             help="This field holds the image used as avatar for this contact, limited to 1024x1024px"),
@@ -298,6 +299,7 @@ class ebay_eps_picture(osv.osv):
     }
     
     _defaults = {
+        'dummy': False
     }
     
     _order = 'name'

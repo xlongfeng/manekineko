@@ -44,7 +44,8 @@ class ebay_synchronize_item(osv.TransientModel):
     _description = 'eBay synchronize item'
     
     _columns = {
-        'ebay_user_id': fields.many2one('ebay.user', 'Account', required=True, domain=[('ownership','=',True)]),
+        'ebay_user_id': fields.many2one('ebay.user', 'eBay User', required=True, domain=[('ownership','=',True)]),
+        'defer': fields.boolean('Allow deferred url fetching for create picture'),
         'new_count': fields.integer('New List', readonly=True),
         'updated_count': fields.integer('Updated List', readonly=True),
         'state': fields.selection([
@@ -53,6 +54,7 @@ class ebay_synchronize_item(osv.TransientModel):
     }
     
     _defaults = {
+        'defer': True,
         'state': 'option',
     }
     
@@ -130,8 +132,41 @@ class ebay_synchronize_item(osv.TransientModel):
                 listing_details = item.ListingDetails
                 selling_status = item.SellingStatus
                 
-                def update_item_status():
-                    pass
+                def update_item_status(item, variation_ids=None):
+                    listing_details = item.ListingDetails
+                    selling_status = item.SellingStatus
+                    status = dict()
+                    status['bid_count'] = selling_status.BidCount
+                    status['end_time'] = listing_details.EndTime
+                    status['hit_count'] = item.HitCount if item.has_key('HitCount') else 0
+                    status['item_id'] = item.ItemID
+                    status['quantity_sold'] = selling_status.QuantitySold
+                    status['start_time'] = listing_details.StartTime
+                    status['state'] = selling_status.ListingStatus
+                    status['time_left'] = item.TimeLeft
+                    status['watch_count'] = item.WatchCount if item.has_key('WatchCount') else 0
+                    if variation_ids and item.has_key('Variations'):
+                        def _find_match_variation(variations, name_value_list, quantity_sold):
+                            values = ''
+                            if type(name_value_list) == list:
+                                for name_value in name_value_list:
+                                    values += name_value.Value
+                            else:
+                                values = name_value_list.Value
+                            
+                            for variation in variations:
+                                specifices = variation.variation_specifics.replace(' ', '').replace('\n', '').replace('\r', '')
+                                if specifices == values:
+                                    variation.write(dict(quantity_sold=quantity_sold))
+                                    break
+                                
+                        for variation in item.Variations.Variation:
+                            _find_match_variation(
+                                variation_ids,
+                                variation.VariationSpecifics.NameValueList,
+                                variation.SellingStatus.QuantitySold,
+                            )
+                    return status
                 
                 # find item sku first
                 if sku:
@@ -140,9 +175,11 @@ class ebay_synchronize_item(osv.TransientModel):
                         id = data[0]
                         product_id = data[1]
                         if id.isdigit() and product_id.isdigit():
-                            ebay_item = ebay_item_obj.browse(cr, uid, int(id), context=context)
-                            if ebay_item.id:
-                                # update listing
+                            if ebay_item_obj.exists(cr, uid, int(id)):
+                                vals = dict()
+                                vals.update(update_item_status(item, ebay_item.variation_ids))
+                                ebay_item = ebay_item_obj.browse(cr, uid, int(id), context=context)
+                                ebay_item.write(vals)
                                 updated_count += 1
                                 continue
                             
@@ -151,7 +188,9 @@ class ebay_synchronize_item(osv.TransientModel):
                 if _ids:
                     id = _ids[0]
                     ebay_item = ebay_item_obj.browse(cr, uid, int(id), context=context)
-                    # update listing
+                    vals = dict()
+                    vals.update(update_item_status(item, ebay_item.variation_ids))
+                    ebay_item.write(vals)
                     updated_count += 1
                     continue
                 
@@ -176,16 +215,7 @@ class ebay_synchronize_item(osv.TransientModel):
                 vals['start_price'] = item.StartPrice.value
                 vals['name'] = item.Title
                 
-                # Item Status ------------
-                vals['bid_count'] = selling_status.BidCount
-                vals['end_time'] = listing_details.EndTime
-                vals['hit_count'] = item.HitCount if item.has_key('HitCount') else 0
-                vals['item_id'] = item.ItemID
-                vals['quantity_sold'] = selling_status.QuantitySold
-                vals['start_time'] = listing_details.StartTime
-                vals['state'] = selling_status.ListingStatus
-                vals['time_left'] = item.TimeLeft
-                vals['watch_count'] = item.WatchCount if item.has_key('WatchCount') else 0
+                vals.update(update_item_status(item))
                 
                 vals['ebay_user_id'] = user.id
                 
@@ -199,7 +229,7 @@ class ebay_synchronize_item(osv.TransientModel):
                         vals = dict(
                             name=str(picture_index),
                             full_url=url,
-                            use_by_date = fields.datetime.now() + timedelta(90),
+                            use_by_date=datetime.now() + timedelta(90),
                         )
                         if specific_value:
                             vals['variation_specific_value'] = specific_value
@@ -263,10 +293,14 @@ class ebay_synchronize_item(osv.TransientModel):
                 for picture in eps_pictures:
                     picture['ebay_item_id'] = id
                     url = picture['full_url']
-                    try:
-                        picture['image'] = base64.encodestring(urllib2.urlopen(url).read())
-                    except:
+                    if this.defer:
                         picture['image'] = img_def
+                        picture['dummy'] = True
+                    else:
+                        try:
+                            picture['image'] = base64.encodestring(urllib2.urlopen(url).read())
+                        except:
+                            picture['image'] = img_def
                     ebay_eps_picture_obj.create(cr, uid, picture, context=context)
                     
                 for variation in item_variation:
