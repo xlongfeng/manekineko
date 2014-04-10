@@ -46,6 +46,7 @@ class ebay_item_synchronize(osv.TransientModel):
     _columns = {
         'ebay_user_id': fields.many2one('ebay.user', 'eBay User', required=True, domain=[('ownership','=',True)]),
         'defer': fields.boolean('Allow deferred url fetching for create picture'),
+        'description_included': fields.boolean('Description included'),
         'new_count': fields.integer('New List', readonly=True),
         'updated_count': fields.integer('Updated List', readonly=True),
         'state': fields.selection([
@@ -55,6 +56,7 @@ class ebay_item_synchronize(osv.TransientModel):
     
     _defaults = {
         'defer': True,
+        'description_included': False,
         'state': 'option',
     }
     
@@ -100,6 +102,8 @@ class ebay_item_synchronize(osv.TransientModel):
                 'PageNumber',
                 'ReturnedItemCountActual',
             ]
+        if this.description_included:
+            output_selector.append('ItemArray.Item.Description')
         # TODO
         time_now = datetime.now()
         time_now_pdt = datetime.now(pytz.timezone('US/Pacific'))
@@ -203,6 +207,15 @@ class ebay_item_synchronize(osv.TransientModel):
                 vals['buy_it_now_price'] = item.BuyItNowPrice.value
                 vals['condition_id'] = item.ConditionID if item.has_key('ConditionID') else None
                 vals['currency'] = item.Currency
+                if this.description_included:
+                    description = item.Description
+                    start_token = '<!-- DESCRIPTION START -->'
+                    end_token = '<!-- DESCRIPTION END -->'
+                    start = description.find(start_token)
+                    end = description.find(end_token)
+                    if start != -1 and end != -1:
+                        description = description[start+len(start_token):end]
+                    vals['description'] = description
                 vals['listing_duration'] = item.ListingDuration
                 vals['listing_type'] = item.ListingType
                 

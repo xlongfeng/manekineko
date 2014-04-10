@@ -14,6 +14,7 @@
 			<group>
 			    <field name="ebay_user_id"/>
 			    <field name="defer"/>
+			    <field name="description_included"/>
 			</group>
 		    </div>
 		    <footer states="option">
