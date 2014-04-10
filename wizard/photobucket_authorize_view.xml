@@ -37,7 +37,7 @@
 
         <act_window id="action_photobucket_authorize"
             multi="True"
-            key2="client_action_multi" name="Photobucket Authentication"
+            key2="client_action_multi" name="Authorize"
             res_model="photobucket.authorize" src_model="photobucket.consumer"
             view_mode="form" target="new" view_type="form" view_id="photobucket_authorize_view"/>
 

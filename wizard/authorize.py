@@ -29,7 +29,7 @@ from ebaysdk.utils import getNodeText
 from ebaysdk.exception import ConnectionError
 from ebaysdk.trading import Connection as Trading
 
-class authorize(osv.TransientModel):
+class ebay_authorize(osv.TransientModel):
     _name = 'ebay.authorize'
     _description = 'eBay Authentication'
     
@@ -100,6 +100,6 @@ class authorize(osv.TransientModel):
         
         return {'type': 'ir.actions.act_window_close'}
 
-authorize()
+ebay_authorize()
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

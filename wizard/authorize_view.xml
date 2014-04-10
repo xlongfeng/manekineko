@@ -26,7 +26,7 @@
 
         <act_window id="ebay_authorize"
             multi="True"
-            key2="client_action_multi" name="eBay Authentication"
+            key2="client_action_multi" name="Authorize"
             res_model="ebay.authorize" src_model="ebay.user"
             view_mode="form" target="new" view_type="form" view_id="ebay_authorize_view"/>
 
