@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+        <record id="ebay_sale_order_tree_view" model="ir.ui.view">
+            <field name="name">ebay sale order tree</field>
+            <field name="model">ebay.sale.order</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay sale order tree">
+                    <field name="name"/>
+                    <field name="cancel_reason"/>
+                    <field name="payment_hold_status"/>
+                    <field name="order_status"/>
+                    <field name="cs_ebay_payment_status"/>
+                    <field name="cs_status"/>
+                    <field name="amount_paid"/>
+                    <field name="subtotal"/>
+                    <field name="total"/>
+                    <field name="created_time"/>
+                    <field name="paid_time"/>
+                    <field name="shipped_time"/>
+                    <field name="state"/>
+                </tree>
+            </field>
+        </record>
+    </data>
+</openerp>

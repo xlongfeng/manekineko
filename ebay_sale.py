@@ -28,14 +28,28 @@ from openerp.tools.translate import _
 import pytz
 from openerp import SUPERUSER_ID
 
-class sale_order(osv.osv):
-    _inherit = "sale.order"
+class ebay_sale_order(osv.osv):
+    _name = "ebay.sale.order"
+    _description = "eBay order"
 
     _columns = {
+        'name': fields.char('Order Reference', size=64, required=True,
+            readonly=True, states={'draft': [('readonly', False)], 'sent': [('readonly', False)]}, select=True),
+        'currency': fields.char('Currency', size=3),
         'adjustment_amount': fields.float('AdjustmentAmount'),
         'amount_paid': fields.float('AmountPaid'),
         'amount_saved': fields.float('AmountSaved'),
         'buyer_checkout_message': fields.text('Message'),
+        'cancel_reason': fields.selection([
+            ('BuyerCancelOrder', 'BuyerCancelOrder'),
+            ('BuyerNoShow', 'BuyerNoShow'),
+            ('BuyerNotSchedule', 'BuyerNotSchedule'),
+            ('BuyerRefused', 'BuyerRefused'),
+            ('CustomCode', 'CustomCode'),
+            ('OutOfStock', 'OutOfStock'),
+            ('ValetDeliveryIssues', 'ValetDeliveryIssues'),
+            ('ValetUnavailable', 'ValetUnavailable'),
+            ], 'Cancel Reason'),
         # CheckoutStatus
         'cs_last_modified_time': fields.datetime('LastModifiedTime', readonly=True),
         'cs_ebay_payment_status': fields.selection([
@@ -54,6 +68,7 @@ class sale_order(osv.osv):
             ('Incomplete', 'Incomplete'),
             ('Pending', 'Pending'),
             ], 'CheckoutStatus Status', readonly=True, select=True),
+        'created_time': fields.datetime('CreatedTime'),
         'order_id': fields.char('OrderID'),
         'order_status': fields.selection([
             ('Active', 'Active'),
@@ -81,30 +96,75 @@ class sale_order(osv.osv):
             ('ReleasePending', 'ReleasePending'),
             ], 'PaymentHoldStatus', readonly=True),
         # ShippingDetails
-        # selling manager sales record number
+        # SellingManagerSalesRecordNumber
         'sd_record_number': fields.integer('Record Number'),
         'shipped_time': fields.date('ShippedTime'),
         'subtotal': fields.float('Subtotal'),
         'total': fields.float('Total'),
+        # TransactionArray
+        'transactions': fields.one2many('ebay.sale.order.transaction', 'order_id', 'Order Transactions', readonly=True, states={'draft': [('readonly', False)], 'sent': [('readonly', False)]}),
+        'partner_id': fields.many2one('res.partner', 'Customer', readonly=True, states={'draft': [('readonly', False)], 'sent': [('readonly', False)]}, required=True, change_default=True, select=True, track_visibility='always'),
+        'ebay_user_id': fields.many2one('ebay.user', 'eBay User', states={'draft': [('readonly', False)], 'sent': [('readonly', False)]}, select=True, track_visibility='onchange'),
+        'state': fields.selection([
+            ('draft', 'Draft Quotation'),
+            ('sent', 'Quotation Sent'),
+            ('cancel', 'Cancelled'),
+            ('waiting_date', 'Waiting Schedule'),
+            ('progress', 'Sales Order'),
+            ('done', 'Done'),
+            ], 'Status', readonly=True, track_visibility='onchange',
+            help="Gives the status of the quotation or sales order. \nThe 'Waiting Schedule' status is set when the invoice is confirmed but waiting for the scheduler to run on the order date.", select=True),
     }
+    
     _defaults = {
+        'name': lambda obj, cr, uid, context: '/',
     }
+    
+    _order = 'sd_record_number desc'
+    
+    def create(self, cr, uid, vals, context=None):
+        if vals.get('name','/')=='/':
+            vals['name'] = self.pool.get('ir.sequence').get(cr, uid, 'ebay.sale.order') or '/'
+        return super(ebay_sale_order, self).create(cr, uid, vals, context=context)
+    
+ebay_sale_order()
 
-class sale_order_line(osv.osv):
-    _inherit = 'sale.order.line'
+class ebay_sale_order_transaction(osv.osv):
+    _name = "ebay.sale.order.transaction"
+    _description = "eBay order transaction"
     
     _columns = {
+        'name': fields.text('Description', required=True, readonly=True, states={'draft': [('readonly', False)]}),
         'actual_handling_cost': fields.float('ActualHandlingCost'),
         'actual_shipping_cost': fields.float('ActualShippingCost'),
+        'created_date': fields.datetime('CreatedDate'),
+        'final_value_fee': fields.float('FinalValueFee'),
         # Item
         'item_id': fields.char('Item ID', size=38, readonly=True),
         'order_line_item_id': fields.char('OrderLineItemID'),
+        'quantity_purchased': fields.integer('Quantity Purchased'),
+        'shipped_time': fields.date('ShippedTime'),
         # ShippingDetails
         # selling manager sales record number
         'sd_record_number': fields.integer('Record Number'),
         'transaction_id': fields.char('TransactionID'),
         'transaction_price': fields.float('TransactionPrice'),
         'view_item_url': fields.char('View Item URL', readonly=True),
+        
+        'order_id': fields.many2one('ebay.sale.order', 'Order Reference', required=True, ondelete='cascade', select=True, readonly=True, states={'draft':[('readonly',False)]}),
+        'product_id': fields.many2one('product.product', 'Product', domain=[('sale_ok', '=', True)], change_default=True),
+        'order_partner_id': fields.related('order_id', 'partner_id', type='many2one', relation='res.partner', store=True, string='Customer'),
+        'ebay_user_id':fields.related('order_id', 'ebay_user_id', type='many2one', relation='ebay.user', store=True, string='eBay User'),
+        'state': fields.selection([('cancel', 'Cancelled'),('draft', 'Draft'),('confirmed', 'Confirmed'),('exception', 'Exception'),('done', 'Done')], 'Status', required=True, readonly=True,
+                help='* The \'Draft\' status is set when the related sales order in draft status. \
+                    \n* The \'Confirmed\' status is set when the related sales order is confirmed. \
+                    \n* The \'Exception\' status is set when the related sales order is set as exception. \
+                    \n* The \'Done\' status is set when the sales order line has been picked. \
+                    \n* The \'Cancelled\' status is set when a user cancel the sales order related.'),
     }
     _defaults = {
     }
+    
+    _order = 'sd_record_number desc'
+    
+ebay_sale_order_transaction()
