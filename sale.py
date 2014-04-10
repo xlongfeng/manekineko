@@ -33,11 +33,8 @@ class sale_order(osv.osv):
 
     _columns = {
         'adjustment_amount': fields.float('AdjustmentAmount'),
-        'adjustment_amount_currency_id': fields.char('AdjustmentAmountCurrencyID', size=3),
         'amount_paid': fields.float('AmountPaid'),
-        'amount_paid_currency_id': fields.char('AmountPaidCurrencyID', size=3),
         'amount_saved': fields.float('AmountSaved'),
-        'amount_saved_currency_id': fields.char('AmountSavedCurrencyID', size=3),
         'buyer_checkout_message': fields.text('Message'),
         # CheckoutStatus
         'cs_last_modified_time': fields.datetime('LastModifiedTime', readonly=True),
@@ -84,12 +81,11 @@ class sale_order(osv.osv):
             ('ReleasePending', 'ReleasePending'),
             ], 'PaymentHoldStatus', readonly=True),
         # ShippingDetails
-        'sd_selling_manager_sales_record_number': fields.integer('Record Number'),
+        # selling manager sales record number
+        'sd_record_number': fields.integer('Record Number'),
         'shipped_time': fields.date('ShippedTime'),
         'subtotal': fields.float('Subtotal'),
-        'subtotal_currency_id': fields.char('SubtotalCurrencyID', size=3),
         'total': fields.float('Total'),
-        'total_currency_id': fields.char('TotalCurrencyID', size=3),
     }
     _defaults = {
     }
@@ -99,17 +95,15 @@ class sale_order_line(osv.osv):
     
     _columns = {
         'actual_handling_cost': fields.float('ActualHandlingCost'),
-        'actual_handling_cost_currency_id': fields.char('ActualHandlingCostCurrencyID', size=3),
         'actual_shipping_cost': fields.float('ActualShippingCost'),
-        'actual_shipping_cost_currency_id': fields.char('ActualShippingCostPriceCurrencyID', size=3),
         # Item
         'item_id': fields.char('Item ID', size=38, readonly=True),
         'order_line_item_id': fields.char('OrderLineItemID'),
         # ShippingDetails
-        'sd_selling_manager_sales_record_number': fields.integer('Record Number'),
+        # selling manager sales record number
+        'sd_record_number': fields.integer('Record Number'),
         'transaction_id': fields.char('TransactionID'),
         'transaction_price': fields.float('TransactionPrice'),
-        'transaction_price_currency_id': fields.char('TransactionPriceCurrencyID', size=3),
         'view_item_url': fields.char('View Item URL', readonly=True),
     }
     _defaults = {

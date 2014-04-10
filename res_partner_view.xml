@@ -6,7 +6,14 @@
             <field name="model">res.partner</field>
             <field name="inherit_id" ref="base.view_partner_form" />
             <field name="arch" type="xml">
-                <xpath expr="//group/field[@name='customer']" position="after">
+                <xpath expr="//notebook/page[@name='page_history']" position="before">
+                    <page string="eBay" attrs="{'invisible': [('customer','=',False)]}">
+                        <group>
+                            <field name="from_ebay"/>
+                            <field name="buyer_user_id"/>
+                            <field name="address_owner"/>
+                        </group>
+                    </page>
                     <field name="from_ebay" attrs="{'invisible': [('customer','=',False)]}"/>
                 </xpath>
             </field>
