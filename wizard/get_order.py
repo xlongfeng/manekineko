@@ -159,7 +159,7 @@ class get_order(osv.TransientModel):
                             vals['order_status'] = order.OrderStatus
                             vals['paid_time'] = order.PaidTime
                             vals['payment_hold_status'] = order.PaymentHoldStatus
-                            vals['sd_selling_manager_sales_record_number'] = order.ShippingDetails.SellingManagerSalesRecordNumber
+                            vals['sd_record_number'] = order.ShippingDetails.SellingManagerSalesRecordNumber
                             vals['shipped_time'] = order.ShippedTime
                             sale_order.write(vals)
                     else:
@@ -180,10 +180,12 @@ class get_order(osv.TransientModel):
                             vals['address_owner'] = shipping_address.AddressOwner
                             vals['city'] = shipping_address.CityName
                             vals['name'] = shipping_address.Name
-                            vals['phone'] = shipping_address.get('Phone', {}).get('value')
+                            if shipping_address.has_key('Phone'):
+                                vals['phone'] = shipping_address.Phone
                             vals['zip'] = shipping_address.PostalCode
                             vals['street'] = shipping_address.Street1
-                            vals['street2'] = shipping_address.get('Street2', {}).get('value')
+                            if shipping_address.has_key('Street2'):
+                                vals['street2'] = shipping_address.Street2
                             country = shipping_address.Country
                             country_name = shipping_address.CountryName
                             country_id = self._search_country_id(cr, uid, country, country_name, context=context)
@@ -194,13 +196,11 @@ class get_order(osv.TransientModel):
                             
                         # create new order
                         vals = dict()
-                        vals['adjustment_amount'] = order.AdjustmentAmount.get('value')
-                        vals['adjustment_amount_currency_id'] = order.AdjustmentAmount.currencyID
-                        vals['amount_paid'] = order.AmountPaid.get('value')
-                        vals['amount_paid_currency_id'] = order.AmountPaid.currencyID
-                        vals['amount_saved'] = order.AmountSaved.get('value')
-                        vals['amount_saved_currency_id'] = order.AmountSaved.currencyID
-                        vals['buyer_checkout_message'] = order.get('BuyerCheckoutMessage', '')
+                        vals['adjustment_amount'] = order.AdjustmentAmount.value
+                        vals['amount_paid'] = order.AmountPaid.value
+                        vals['amount_saved'] = order.AmountSaved.value
+                        if order.has_key('BuyerCheckoutMessage'):
+                            vals['buyer_checkout_message'] = order.BuyerCheckoutMessage
                         vals['date_order'] = order.CreatedTime
                         checkout_status = order.CheckoutStatus
                         vals['cs_last_modified_time'] = checkout_status.LastModifiedTime
@@ -211,12 +211,10 @@ class get_order(osv.TransientModel):
                         vals['order_status'] = order.OrderStatus
                         vals['paid_time'] = order.PaidTime
                         vals['payment_hold_status'] = order.PaymentHoldStatus
-                        vals['sd_selling_manager_sales_record_number'] = order.ShippingDetails.SellingManagerSalesRecordNumber
+                        vals['sd_record_number'] = order.ShippingDetails.SellingManagerSalesRecordNumber
                         vals['shipped_time'] = order.ShippedTime
-                        vals['subtotal'] = order.Subtotal.get('value')
-                        vals['subtotal_currency_id'] = order.Subtotal.currencyID
-                        vals['total'] = order.Total.get('value')
-                        vals['total_currency_id'] = order.Total.currencyID
+                        vals['subtotal'] = order.Subtotal.value
+                        vals['total'] = order.Total.value
                         vals['partner_id'] = vals['partner_invoice_id'] = vals['partner_shipping_id'] = partner_id
                         vals['pricelist_id'] = pricelist_id
                         if vals['shipped_time']:
@@ -242,7 +240,7 @@ class get_order(osv.TransientModel):
                             vals['actual_shipping_cost'] = transaction.ActualShippingCost.get('value')
                             vals['actual_shipping_cost_currency_id'] = transaction.ActualShippingCost.currencyID
                             vals['order_line_item_id'] = transaction.OrderLineItemID
-                            vals['sd_selling_manager_sales_record_number'] = transaction.ShippingDetails.SellingManagerSalesRecordNumber
+                            vals['sd_record_number'] = transaction.ShippingDetails.SellingManagerSalesRecordNumber
                             vals['transaction_id'] = transaction.TransactionID
                             vals['transaction_price'] = transaction.TransactionPrice.get('value')
                             vals['transaction_price_currency_id'] = transaction.TransactionPrice.currencyID

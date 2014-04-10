@@ -49,7 +49,7 @@
             name="Synchronize"
             action="action_ebay_item_synchronize_view"
             id="menu_ebay_item_synchronize_view"
-            parent="ebay_menu_listing_activity"
+            parent="menu_ebay_listing_activity"
             sequence="25"/>
 
     </data>

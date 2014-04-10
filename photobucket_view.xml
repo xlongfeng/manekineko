@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <openerp>
     <data>
-        <menuitem id="menu_photobucket" name="Photobucket" sequence="30" parent="ebay_menu_listing_activity"/>
+        <menuitem id="menu_photobucket" name="Photobucket" sequence="30" parent="menu_ebay_listing_activity"/>
         
         <record model="ir.ui.view" id="photobucket_consumer_form_view">
             <field name="name">photobucket consumer form</field>

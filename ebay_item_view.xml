@@ -2,7 +2,7 @@
 <openerp>
     <data>
         
-        <menuitem id="ebay_menu_listing_activity" name="Listing Activity" sequence="90" parent="ebay_menu_top"/>
+        <menuitem id="menu_ebay_listing_activity" name="Listing Activity" sequence="90" parent="menu_ebay_top"/>
         
         <record model="ir.ui.view" id="ebay_item_form_view">
             <field name="name">ebay item form</field>
@@ -215,7 +215,7 @@
             <field name="view_type">form</field>
             <field name="view_mode">tree,form</field>
         </record>
-        <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="ebay_menu_listing_activity"/>
+        <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="menu_ebay_listing_activity"/>
         
         <record model="ir.ui.view" id="ebay_details_form_view">
             <field name="name">ebay details form</field>
@@ -265,7 +265,7 @@
             <field name="view_type">form</field>
             <field name="view_mode">tree,form</field>
         </record>
-        <menuitem id="ebay_menu_details" action="action_ebay_details_tree" sequence="60" parent="ebay_menu_listing_activity"/>
+        <menuitem id="ebay_menu_details" action="action_ebay_details_tree" sequence="60" parent="menu_ebay_listing_activity"/>
         
         <record model="ir.ui.view" id="ebay_category_form_view">
             <field name="name">ebay category form</field>
@@ -326,7 +326,7 @@
             <field name="view_type">form</field>
             <field name="view_mode">tree,form</field>
         </record>
-        <menuitem id="ebay_menu_category" action="action_ebay_category_tree" sequence="50" parent="ebay_menu_listing_activity"/>
+        <menuitem id="ebay_menu_category" action="action_ebay_category_tree" sequence="50" parent="menu_ebay_listing_activity"/>
         
         <record model="ir.ui.view" id="ebay_condition_description_form_view">
             <field name="name">ebay condition description form</field>

@@ -38,7 +38,7 @@
             name="Get Orders"
             action="action_ebay_get_order_view"
             id="menu_ebay_get_order_view"
-            parent="ebay_menu_sale_management"
+            parent="menu_ebay_sale_management"
             sequence="40"
             icon="STOCK_CONVERT"/>
 

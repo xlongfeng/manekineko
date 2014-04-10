@@ -46,7 +46,7 @@
             name="Get Category Features"
             action="action_ebay_get_category_features_view"
             id="menu_ebay_get_cagegory_features_view"
-            parent="ebay_menu_listing_activity"
+            parent="menu_ebay_listing_activity"
             sequence="90"/>
 
     </data>

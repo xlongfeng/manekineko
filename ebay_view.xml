@@ -3,9 +3,9 @@
     <data>
 
         <!-- Top menu item -->
-        <menuitem id="ebay_menu_top" name="eBay"/>
+        <menuitem id="menu_ebay_top" name="eBay"/>
         
-        <menuitem id="ebay_menu_user" name="User" sequence="70" parent="ebay_menu_top"/>
+        <menuitem id="menu_ebay_user" name="User" sequence="70" parent="menu_ebay_top"/>
         
         <record id="act_ebay_user_2_seller_listing" model="ir.actions.act_window">
             <field name="name">eBay Seller Lists</field>
@@ -103,7 +103,7 @@
             <field name="domain">[('ownership','=',1)]</field>
             <field name="context">{'default_ownership':1}</field>
         </record>
-        <menuitem id="ebay_menu_ownership" action="action_ebay_ownership_tree" sequence="20" parent="ebay_menu_user"/>
+        <menuitem id="menu_ebay_ownership" action="action_ebay_ownership_tree" sequence="20" parent="menu_ebay_user"/>
         
         <record id="action_ebay_seller_tree" model="ir.actions.act_window">
             <field name="name">Sellers</field>
@@ -113,7 +113,7 @@
             <field name="domain">[('ownership','=',0)]</field>
             <field name="context">{'default_ownership':0}</field>
         </record>
-        <menuitem id="ebay_menu_sellers" action="action_ebay_seller_tree" sequence="30" parent="ebay_menu_user"/>
+        <menuitem id="menu_ebay_sellers" action="action_ebay_seller_tree" sequence="30" parent="menu_ebay_user"/>
         
         <record id="action_ebay_customer_form" model="ir.actions.act_window">
             <field name="name">Customers</field>
@@ -135,8 +135,8 @@
             </field>
         </record>
         
-        <menuitem id="ebay_menu_customer" name="Customers"
-            parent="ebay_menu_user"
+        <menuitem id="menu_ebay_customer" name="Customers"
+            parent="menu_ebay_user"
             action="action_ebay_customer_form" sequence="40"/>
         
         <record model="ir.ui.view" id="ebay_seller_list_tree_view">
@@ -207,13 +207,6 @@
             </field>
         </record>
         
-        <menuitem id="ebay_menu_stock_product" name="Products" parent="ebay_menu_top" sequence="60"/>
-        <menuitem name="Products by Category" id="ebay_menu_product_by_category_stock_form" action="product.product_category_action"
-            parent="ebay_menu_stock_product" sequence="0"/>
-        <menuitem action="product.product_normal_action" id="ebay_menu_stock_products_menu" parent="ebay_menu_stock_product" sequence="1"/>
-        
-        <menuitem id="ebay_menu_sale_management" name="Sales" parent="ebay_menu_top" sequence="50"/>
-        <menuitem id="ebay_menu_sale_order" action="sale.action_orders" parent="ebay_menu_sale_management" sequence="5"/>
-        <menuitem id="ebay_menu_sale_quotations" action="sale.action_quotations" parent="ebay_menu_sale_management" sequence="4"/>
+        <menuitem id="menu_ebay_sale_management" name="Sales" parent="menu_ebay_top" sequence="50"/>
     </data>
 </openerp>
