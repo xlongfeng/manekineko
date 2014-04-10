@@ -497,13 +497,13 @@ class ebay_item(osv.osv):
         Name3=Value3
         """),
         'listing_duration': fields.selection([
-            ('Days_1', '1 days'),
+            ('Days_1', '1 days (only for Auction)'),
             ('Days_3', '3 days'),
             ('Days_5', '5 days'),
             ('Days_7', '7 days'),
             ('Days_10', '10 days'),
-            ('Days_30', '30 days'),
-            ('GTC', 'GTC'),
+            ('Days_30', '30 days (only for Fixed Prise)'),
+            ('GTC', 'GTC (only for Fixed Prise)'),
             ],'Duration'),
         'listing_type': fields.selection([
             #('AdType', 'AdType'),
@@ -568,6 +568,8 @@ class ebay_item(osv.osv):
             ('Ended', 'Ended'),
         ], 'Listing Status', readonly=True),
         'time_left': fields.char('Time Left', readonly=True),
+        'revise_date': fields.datetime('Revise Date', readonly=True),
+        'update_date': fields.datetime('Update Date', readonly=True),
         'view_item_url': fields.function(_get_item_view_url, type='char', method="True", string='View Item'),
         'watch_count': fields.integer('Watch Count', readonly=True),
         'response': fields.text('Response', readonly=True),
@@ -926,6 +928,7 @@ class ebay_item(osv.osv):
             vals['end_time'] = api.response.reply.EndTime
             vals['item_id'] = api.response.reply.ItemID
             vals['start_time'] = api.response.reply.StartTime
+            vals['revise_date'] = fields.datetime.now()
             vals['state'] = 'Active'
             vals['response'] = api.response.json()
             item.write(vals)
@@ -985,6 +988,7 @@ class ebay_item(osv.osv):
             api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
             vals = dict()
             vals['end_time'] = api.response.reply.EndTime
+            vals['revise_date'] = fields.datetime.now()
             vals['response'] = api.response.json()
             item.write(vals)
             return True
@@ -1019,6 +1023,7 @@ class ebay_item(osv.osv):
             vals['quantity_sold'] = selling_status.QuantitySold
             vals['state'] = selling_status.ListingStatus
             vals['time_left'] = reply.Item.TimeLeft
+            vals['update_date'] = fields.datetime.now()
             vals['watch_count'] = reply.Item.WatchCount
             if  reply.Item.has_key('Variations'):
                 def _find_match_variation(variations, name_value_list, quantity_sold):

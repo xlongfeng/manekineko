@@ -19,6 +19,7 @@
                         <field name="state" widget="statusbar"/>
                     </header>
                     <sheet>
+                        <field name="view_item_url" widget="url" attrs="{'invisible': [('item_id','=',False)]}"/>
                         <group>
                             <group>
                                 <field name="product_id"/>
@@ -29,20 +30,6 @@
                                 <field name="ebay_user_id" attrs="{'readonly': [('state','!=','Draft')]}"/>
                             </group>
                         </group>
-                        <group string="Selling Status" attrs="{'invisible': [('state','=','Draft')]}">
-                            <group>
-                                <field name="start_time"/>
-                                <field name="quantity_sold" attrs="{'invisible': [('listing_type','!=','Chinese')]}"/>
-                                <field name="bid_count" attrs="{'invisible': [('listing_type','=','Chinese')]}"/>
-                                <field name="hit_count"/>
-                            </group>
-                            <group>
-                                <field name="end_time"/>
-                                <field name="time_left"/>
-                                <field name="watch_count"/>
-                            </group>
-                        </group>
-                        <field name="view_item_url" widget="url" attrs="{'invisible': [('item_id','=',False)]}"/>
                         <group string="Title and Category">
                             <div>
                                 <h2>
@@ -175,6 +162,23 @@
                             <page string="Response" style="min-height:480px">
                                 <field name="response"/>
                             </page>
+                            <page string="Selling Status" style="min-height:480px" attrs="{'invisible': [('state','=','Draft')]}">
+                                <group>
+                                    <group>
+                                        <field name="revise_date"/>
+                                        <field name="start_time"/>
+                                        <field name="quantity_sold" attrs="{'invisible': [('listing_type','!=','Chinese')]}"/>
+                                        <field name="bid_count" attrs="{'invisible': [('listing_type','=','Chinese')]}"/>
+                                        <field name="hit_count"/>
+                                    </group>
+                                    <group>
+                                        <field name="update_date"/>
+                                        <field name="end_time"/>
+                                        <field name="time_left"/>
+                                        <field name="watch_count"/>
+                                    </group>
+                                </group>
+                            </page>
                         </notebook>
                         <group>
                             
@@ -198,7 +202,9 @@
                     <field name="listing_duration"/>
                     <field name="start_price"/>
                     <field name="state"/>
-                    <field name="ebay_user_id"/>
+                    <!-- <field name="ebay_user_id"/> -->
+                    <field name="revise_date"/>
+                    <field name="update_date"/>
                 </tree>
             </field>
         </record>

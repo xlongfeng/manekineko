@@ -144,6 +144,7 @@ class ebay_synchronize_item(osv.TransientModel):
                     status['start_time'] = listing_details.StartTime
                     status['state'] = selling_status.ListingStatus
                     status['time_left'] = item.TimeLeft
+                    status['update_date'] = fields.datetime.now()
                     status['watch_count'] = item.WatchCount if item.has_key('WatchCount') else 0
                     if variation_ids and item.has_key('Variations'):
                         def _find_match_variation(variations, name_value_list, quantity_sold):
@@ -227,7 +228,7 @@ class ebay_synchronize_item(osv.TransientModel):
                         picture_urls = [picture_urls]
                     for url in picture_urls:
                         vals = dict(
-                            name=str(picture_index),
+                            name='%03d' % picture_index,
                             full_url=url,
                             use_by_date=datetime.now() + timedelta(90),
                         )
