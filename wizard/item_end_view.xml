@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+
+        <!-- wizard view -->
+        <record model="ir.ui.view" id="ebay_item_end_view">
+            <field name="name">ebay item end</field>
+            <field name="model">ebay.item.end</field>
+            <field name="arch" type="xml">
+                <form string="ebay item end" version="7.0">
+		    <separator string="End Active Items"/>
+		    <group>
+			<field name="count"/>
+		    </group>
+		    <p class="oe_grey">
+			This may take a very long time, please be patient to wait accomplish.
+		    </p>
+		    <footer>
+			<button name="action_end" string="OK" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <act_window id="ebay_item_end"
+            multi="True"
+            key2="client_action_multi" name="End"
+            res_model="ebay.item.end" src_model="ebay.item"
+            view_mode="form" target="new" view_type="form" view_id="ebay_item_end_view"/>
+
+    </data>
+</openerp>

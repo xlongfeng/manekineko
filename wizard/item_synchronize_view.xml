@@ -3,11 +3,11 @@
     <data>
 
         <!-- wizard view -->
-        <record model="ir.ui.view" id="ebay_synchronize_item_view">
-            <field name="name">ebay synchronize item</field>
-            <field name="model">ebay.synchronize.item</field>
+        <record model="ir.ui.view" id="ebay_item_synchronize_view">
+            <field name="name">ebay item synchronize </field>
+            <field name="model">ebay.item.synchronize</field>
             <field name="arch" type="xml">
-                <form string="ebay synchronize item" version="7.0">
+                <form string="ebay item synchronize " version="7.0">
 		    <field name="state" invisible="1"/>
 		    <separator string="Synchronize listing for the specified ebay user"/>
 		    <div states="option">
@@ -35,10 +35,10 @@
 	    </field>
 	</record>
 
-        <record id="action_ebay_synchronize_item_view" model="ir.actions.act_window">
+        <record id="action_ebay_item_synchronize_view" model="ir.actions.act_window">
             <field name="name">Synchronize</field>
             <field name="type">ir.actions.act_window</field>
-            <field name="res_model">ebay.synchronize.item</field>
+            <field name="res_model">ebay.item.synchronize</field>
             <field name="view_type">form</field>
             <field name="view_mode">form</field>
             <field name="target">new</field>
@@ -46,8 +46,8 @@
 
         <menuitem
             name="Synchronize"
-            action="action_ebay_synchronize_item_view"
-            id="menu_ebay_synchronize_item_view"
+            action="action_ebay_item_synchronize_view"
+            id="menu_ebay_item_synchronize_view"
             parent="ebay_menu_listing_activity"
             sequence="25"/>
 

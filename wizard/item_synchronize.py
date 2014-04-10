@@ -39,9 +39,9 @@ from openerp.tools.translate import _
 
 _logger = logging.getLogger(__name__)
 
-class ebay_synchronize_item(osv.TransientModel):
-    _name = 'ebay.synchronize.item'
-    _description = 'eBay synchronize item'
+class ebay_item_synchronize(osv.TransientModel):
+    _name = 'ebay.item.synchronize'
+    _description = 'eBay item synchronize '
     
     _columns = {
         'ebay_user_id': fields.many2one('ebay.user', 'eBay User', required=True, domain=[('ownership','=',True)]),
@@ -252,40 +252,43 @@ class ebay_synchronize_item(osv.TransientModel):
                     ]
                     error_msg = 'Get item: %s' % item.Title
                     reply = ebay_ebay_obj.call(cr, uid, user, 'GetItem', call_data, error_msg, context=context).response.reply
-                    
-                    _variations = reply.Item.Variations
-                    _pictures = _variations.Pictures
                     vals['variation_invalid'] = False
                     vals['variation'] = True
-                    vals['variation_specific_name'] = _pictures.VariationSpecificName
-                    
-                    if _pictures.has_key('VariationSpecificPictureSet'):
-                        picture_set = _pictures.VariationSpecificPictureSet
-                        if type(picture_set) != list:
-                            picture_set = [picture_set]
-                        for picture in picture_set:
-                            picture_index, _eps_pictures = get_eps_pictures(picture_index, picture.PictureURL, picture.VariationSpecificValue)
-                            eps_pictures.extend(_eps_pictures)
+                    _variations = reply.Item.Variations
+                    if _variations.has_key('Pictures'):
+                        _pictures = _variations.Pictures
+                        if _pictures.has_key('VariationSpecificPictureSet'):
+                            picture_set = _pictures.VariationSpecificPictureSet
+                            if type(picture_set) != list:
+                                picture_set = [picture_set]
+                            for picture in picture_set:
+                                picture_index, _eps_pictures = get_eps_pictures(picture_index, picture.PictureURL, picture.VariationSpecificValue)
+                                eps_pictures.extend(_eps_pictures)
                             
                     def get_specifices_set(name_value_list):
+                        variation_specific_name = list()
                         variation_specifics_set = ''
                         if type(name_value_list) != list:
                             name_value_list = [name_value_list]
                         for name_value in name_value_list:
+                            variation_specific_name.append(name_value.Name)
                             values = name_value.Value
                             if type(values) != list:
                                 values = [values]
-                            variation_specifics_set = variation_specifics_set + '|'.join(values) +'\n'
-                        return variation_specifics_set
+                            if variation_specifics_set:
+                                variation_specifics_set = variation_specifics_set + '\n'
+                            variation_specifics_set = variation_specifics_set + '|'.join(values)
+                        return '|'.join(variation_specific_name), variation_specifics_set
                     
-                    vals['variation_specifics_set'] = get_specifices_set(_variations.VariationSpecificsSet.NameValueList)
+                    vals['variation_specific_name'], vals['variation_specifics_set'] = get_specifices_set(_variations.VariationSpecificsSet.NameValueList)
                     
                     for _v in _variations.Variation:
+                        variation_specific_name, variation_specifics=get_specifices_set(_v.VariationSpecifics.NameValueList)
                         item_variation.append(dict(
                             product_id=_v.SKU if _v.has_key('SKU') and _v.SKU.isdigit() else '',
                             quantity=_v.Quantity,
                             start_price=_v.StartPrice.value,
-                            variation_specifics=get_specifices_set(_v.VariationSpecifics.NameValueList),
+                            variation_specifics=variation_specifics,
                             quantity_sold=_v.SellingStatus.QuantitySold,
                         ))
                 
@@ -321,7 +324,7 @@ class ebay_synchronize_item(osv.TransientModel):
         return {
             'name': "Synchronize",
             'type': 'ir.actions.act_window',
-            'res_model': 'ebay.synchronize.item',
+            'res_model': 'ebay.item.synchronize',
             'view_mode': 'form',
             'view_type': 'form',
             'res_id': this.id,
@@ -338,6 +341,6 @@ class ebay_synchronize_item(osv.TransientModel):
             'res_model': 'ebay.item',
         }
 
-ebay_synchronize_item()
+ebay_item_synchronize()
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

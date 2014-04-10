@@ -22,7 +22,10 @@ import authorize
 import get_category_features
 import get_ebay_details
 import get_order
+import item_end
+import item_revise
+import item_synchronize
 import photobucket_authorize
-import synchronize_item
+
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
 

@@ -59,7 +59,7 @@
                         <field name="variation_invalid" invisible="1"/>
                         <group string="Variations" attrs="{'invisible': [('variation_invalid','=',True)]}">
                             <field name="variation" attrs="{'readonly': [('state','!=','Draft')]}"/>
-                            <field name="variation_modify_specific_name" attrs="{'invisible': [('variation','!=',False)]}"/>
+                            <field name="variation_modify_specific_name" attrs="{'invisible': [('variation','=',False)]}"/>
                             <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)], 'readonly': [('state','=','Active')]}"/>
                             <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
                             <field name="variation_ids" attrs="{'invisible': [('variation','=',False)]}">
@@ -127,13 +127,13 @@
                                             </div>
                                             <group>
                                                 <field name="use_by_date"/>
-                                                <field name="full_url"/>
+                                                <field name="full_url" widget="url"/>
                                                 <field name="base_url"/>
                                                 <field name="picture_format"/>
                                             </group>
                                             <field name="picturesetmember_ids">
                                                 <tree string="Picture Set Member">
-                                                    <field name="member_url"/>
+                                                    <field name="member_url" widget="url"/>
                                                     <field name="picture_height"/>
                                                     <field name="picture_width"/>
                                                 </tree>
