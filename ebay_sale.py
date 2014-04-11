@@ -149,8 +149,54 @@ class ebay_sale_order(osv.osv):
                 vals['name'] = 'eso/%s' % sd_record_number
         return super(ebay_sale_order, self).create(cr, uid, vals, context=context)
     
+    def _prepare_order_picking(self, cr, uid, order, context=None):
+        pick_name = self.pool.get('ir.sequence').get(cr, uid, 'stock.picking.out')
+        return {
+            'name': pick_name,
+            'origin': order.name,
+            'date': order.created_time,
+            'type': 'out',
+            'state': 'auto',
+            'move_type': 'one',
+            'partner_id': order.partner_id.id,
+            'note': order.buyer_checkout_message,
+            'invoice_state': 'none',
+        }
+    
+    def _prepare_order_line_move(self, cr, uid, order, line, picking_id, date_planned, context=None):
+        return {
+            'name': line.name,
+            'picking_id': picking_id,
+            'product_id': line.product_id.id,
+            'product_qty': line.product_uom_qty,
+            'product_uom': line.product_uom.id,
+            'product_uos_qty': line.product_uom_qty,
+            'product_uos': line.product_uom.id,
+            'partner_id': order.partner_id.id,
+            'tracking_id': False,
+            'state': 'draft',
+            #'state': 'waiting',
+            'company_id': order.company_id.id,
+            'price_unit': line.transaction_price
+        }
+    
+    def _create_pickings(self, cr, uid, order, context=None):
+        if order.state == 'draft' and order.state == 'pending' \
+            and order.cs_ebay_payment_status == 'NoPaymentFailure' and order.cs_status == 'Complete':
+            move_obj = self.pool.get('stock.move')
+            picking_obj = self.pool.get('stock.picking')
+            
+            for line in order.transactions:
+                if line.product_id and line.product_id.exists():
+                    date_planned = order.paid_time
+                    picking_id = picking_obj.create(cr, uid, self._prepare_order_picking(cr, uid, order, context=context))
+                    move_id = move_obj.create(cr, uid, self._prepare_order_line_move(cr, uid, order, line, picking_id, date_planned, context=context))
+                    order.write({'state': 'progress'})
+    
     def action_confirm(self, cr, uid, ids, context=None):
-        return self.write(cr, uid, ids, {'state': 'progress'}, context)
+        for order in self.browse(cr, uid, ids, context=context):
+            self._create_pickings(cr, uid, order, context=context)
+        return True
         
     def action_pending(self, cr, uid, ids, context=None):
         return self.write(cr, uid, ids, {'state': 'pending'}, context)
@@ -159,10 +205,18 @@ class ebay_sale_order(osv.osv):
         return self.write(cr, uid, ids, {'state': 'cancel'}, context)
         
     def action_send(self, cr, uid, ids, context=None):
-        return self.write(cr, uid, ids, {'state': 'sent'}, context)
+        send_ids = list()
+        for order in self.browse(cr, uid, ids, context=context):
+            if order.state == 'progress':
+                send_ids.append(order.id)
+        return self.write(cr, uid, send_ids, {'state': 'sent'}, context)
         
     def action_done(self, cr, uid, ids, context=None):
-        return self.write(cr, uid, ids, {'state': 'done'}, context)
+        done_ids = list()
+        for order in self.browse(cr, uid, ids, context=context):
+            if order.state == 'sent':
+                done_ids.append(order.id)
+        return self.write(cr, uid, done_ids, {'state': 'done'}, context)
     
 ebay_sale_order()
 
