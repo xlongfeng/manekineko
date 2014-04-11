@@ -1,27 +1,151 @@
 <?xml version="1.0" encoding="utf-8"?>
 <openerp>
     <data>
-        <record id="ebay_sale_order_tree_view" model="ir.ui.view">
+        <menuitem id="menu_ebay_sale_management" name="Sales" parent="menu_ebay_top" sequence="50"/>
+        
+        <record id="view_ebay_sale_order_tree" model="ir.ui.view">
             <field name="name">ebay sale order tree</field>
             <field name="model">ebay.sale.order</field>
             <field name="type">tree</field>
             <field name="arch" type="xml">
-                <tree string="ebay sale order tree">
+                <tree string="ebay sale order tree" fonts="bold:buyer_checkout_message!=False" colors="grey:state=='cancel';blue:state in ('draft');red:state in ('pending');purple:state in ('progress')">
                     <field name="name"/>
-                    <field name="cancel_reason"/>
-                    <field name="payment_hold_status"/>
-                    <field name="order_status"/>
+                    <field name="buyer_user_id"/>
+                    <field name="buyer_checkout_message" invisible="1"/>
                     <field name="cs_ebay_payment_status"/>
                     <field name="cs_status"/>
                     <field name="amount_paid"/>
-                    <field name="subtotal"/>
-                    <field name="total"/>
                     <field name="created_time"/>
-                    <field name="paid_time"/>
-                    <field name="shipped_time"/>
                     <field name="state"/>
+                    <field name="cancel_reason"/>
                 </tree>
             </field>
         </record>
+        
+        <record id="view_ebay_sale__form" model="ir.ui.view">
+            <field name="name">ebay sale order tree form</field>
+            <field name="model">ebay.sale.order</field>
+            <field name="arch" type="xml">
+                <form string="eBay Sales Order" version="7.0">
+                    <header>
+                        <button name="action_confirm" class="oe_highlight" states="draft,pending" string="Confirm" type="object"/>
+                        <button name="action_pending" states="draft" string="Pending" type="object"/>
+                        <button name="action_send" class="oe_highlight" confirm="Are you sure want to delivery this order?" states="progress" string="Delivery" type="object"/>
+                        <button name="action_done" class="oe_highlight" confirm="Are you sure want to complete this order?"  states="sent" string="Done" type="object"/>
+                        <button name="action_cancel" states="draft" confirm="Are you sure want to cancel this order?" string="Cancel" type="object"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <h1 class="oe_title">
+                            <label for="name"/>
+                            <field name="name" class="oe_inline" readonly="1"/>
+                        </h1>
+                        <div class="oe_right">
+                            <label for="ebay_user_id"/>
+                            <field name="ebay_user_id" class="oe_inline" />
+                        </div>
+                        <group>
+                            <group>
+                                <field name="buyer_user_id"/>
+                                <field name="partner_id" domain="[('customer','=',True)]" context="{'search_default_customer':1, 'show_address': 1}" options='{"always_reload": True}'/>
+                            </group>
+                            <group>
+                                <field name="order_status"/>
+                                <field name="created_time"/>
+                                <field name="paid_time"/>
+                                <field name="shipped_time"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="order_id"/>
+                            <field name="payment_hold_status"/>
+                            <field name="cancel_reason"/>
+                            <field name="buyer_checkout_message"/>
+                        </group>
+                        <group>
+                            <group string="Sales Price Detail">
+                                <field name="adjustment_amount"/>
+                                <field name="amount_paid"/>
+                                <field name="amount_saved"/>
+                                <field name="subtotal"/>
+                                <field name="total"/>
+                            </group>
+                            <group string="Checkout Status">
+                                <field name="cs_status"/>
+                                <field name="cs_payment_method"/>
+                                <field name="cs_ebay_payment_status"/>
+                                <field name="cs_last_modified_time"/>
+                            </group>
+                        </group>
+                        <label for="transactions"/>
+                        <field name="transactions">
+                            <form string="Order Transactions" version="7.0">
+                                <header>
+                                    <field name="state" widget="statusbar"/>
+                                </header>
+                                <group>
+                                    <field name="name"/>
+                                    <field name="product_id"/>
+                                    <field name="ebay_item_id"/>
+                                    <field name="sd_record_number"/>
+                                </group>
+                                <group>
+                                    <group>
+                                        <field name="view_item_url" widget="url"/>
+                                        <field name="quantity_purchased"/>
+                                        <field name="transaction_price"/>
+                                        <field name="final_value_fee"/>
+                                    </group>
+                                    <group>
+                                        <field name="created_date"/>
+                                        <field name="shipped_time"/>
+                                        <field name="actual_handling_cost"/>
+                                        <field name="actual_shipping_cost"/>
+                                    </group>
+                                </group>
+                            </form>
+                            <tree string="Order Transactions">
+                                <field name="sd_record_number"/>
+                                <field name="product_id"/>
+                                <field name="name"/>
+                                <field name="quantity_purchased"/>
+                                <field name="transaction_price"/>
+                                <field name="state" invisible="1"/>
+                            </tree>
+                        </field>
+                    </sheet>
+                    <div class="oe_chatter">
+                    </div>
+                </form>
+            </field>
+        </record>
+        
+        <record id="view_ebay_sales_order_filter" model="ir.ui.view">
+            <field name="name">ebay sales order list select</field>
+            <field name="model">ebay.sale.order</field>
+            <field name="arch" type="xml">
+                <search string="Search Sales Order">
+                    <filter icon="terp-document-new" string="Draft" name="draft" domain="[('state','in',('draft',))]" help="Sales Order that haven't yet been confirmed"/>
+                    <filter icon="terp-check" string="In Progress" name="sales" domain="[('state','in',('progress',))]" help="Sales Order ready to be sent"/>
+                    <filter icon="terp-dolar_ok!" string="Sent" domain="[('state','in',('sent',))]" help="Sales Order has to be sent"/>
+                    <filter icon="terp-dolar_ok!" string="Done" domain="[('state','=','done')]" help="Sales Order done"/>
+                    <separator/>
+                    <field name="partner_id" filter_domain="[('partner_id', 'child_of', self)]"/>
+                    <field name="ebay_user_id"/>
+                    <group expand="0" string="Group By...">
+                        <filter string="Customer" icon="terp-personal" domain="[]" context="{'group_by':'partner_id'}"/>
+                        <filter string="Status" icon="terp-stock_effects-object-colorize" domain="[]" context="{'group_by':'state'}"/>
+                    </group>
+               </search>
+            </field>
+        </record>
+        
+        <record id="action_ebay_sale_order_tree" model="ir.actions.act_window">
+            <field name="name">Sale Orders</field>
+            <field name="res_model">ebay.sale.order</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+        <menuitem id="menu_ebay_sale_order" action="action_ebay_sale_order_tree" sequence="20" parent="menu_ebay_sale_management"/>
     </data>
 </openerp>

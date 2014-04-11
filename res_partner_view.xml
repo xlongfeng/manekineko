@@ -10,7 +10,6 @@
                     <page string="eBay" attrs="{'invisible': [('customer','=',False)]}">
                         <group>
                             <field name="from_ebay"/>
-                            <field name="buyer_user_id"/>
                             <field name="address_owner"/>
                         </group>
                     </page>

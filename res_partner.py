@@ -35,7 +35,6 @@ class res_partner(osv.osv):
 
     _columns = {
         'from_ebay': fields.boolean('From eBay', help="Check this box if this contact is a ebay customer."),
-        'buyer_user_id': fields.char('User ID'),
         'address_id': fields.char('Address ID', help="""
 Unique ID for a user's address in the eBay database.
 This value can help prevent the need to store an address multiple times across multiple orders.

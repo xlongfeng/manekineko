@@ -63,12 +63,18 @@ class ebay_ebay(osv.osv):
     }
     
     def to_default_format(self, cr, uid, timestamp, context=None):
-        date = (parser.parse(timestamp))
-        return date.strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT)
+        if type(timestamp) == datetime:
+            return timestamp.strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT)
+        else:
+            date = parser.parse(timestamp)
+            return date.strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT)
     
     def to_iso8601_format(self, cr, uid, timestamp, context=None):
-        date = (parser.parse(timestamp))
-        return date.isoformat()
+        if type(timestamp) == datetime:
+            return timestamp.isoformat()
+        else:
+            date = (parser.parse(timestamp))
+            return date.isoformat()
         
     def dump_resp(self, cr, uid, api, context=None):
         print("ebay api dump")

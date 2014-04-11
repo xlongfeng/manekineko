@@ -20,6 +20,7 @@
 ##############################################################################
 import ebay
 import ebay_item
+import ebay_sale
 import photobucket
 import res_partner
 import wizard

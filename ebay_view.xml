@@ -7,7 +7,7 @@
         
         <menuitem id="menu_ebay_user" name="User" sequence="70" parent="menu_ebay_top"/>
         
-        <record id="action_ebay__seller_listing" model="ir.actions.act_window">
+        <record id="action_ebay_seller_listing" model="ir.actions.act_window">
             <field name="name">eBay Seller Lists</field>
             <field name="res_model">ebay.seller.list</field>
             <field name="view_type">form</field>
@@ -36,7 +36,7 @@
                             </h1>
                         </div>
                         <div class="oe_right oe_button_box" name="buttons">
-                            <button name="%(action_ebay__seller_listing)d" type="action" string="Seller Lists"/>
+                            <button name="%(action_ebay_seller_listing)d" type="action" string="Seller Lists"/>
                         </div>
                         <group>
                             <group>

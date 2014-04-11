@@ -77,13 +77,13 @@ class get_order(osv.TransientModel):
     def action_sync(self, cr, uid, ids, context=None):
         if context is None:
             context = {}
-        data = self.read(cr, uid, ids)[0]
+        this = self.browse(cr, uid, ids)[0]
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         res_partner_obj = self.pool.get('res.partner')
-        sale_order_obj = self.pool.get('sale.order')
-        sale_order_line_obj = self.pool.get('sale.order.line')
+        ebay_sale_order_obj = self.pool.get('ebay.sale.order')
+        ebay_sale_order_transaction_obj = self.pool.get('ebay.sale.order.transaction')
         pricelist_id = self.pool.get('product.pricelist').search(cr, uid, [], context=context)[0]
-        for user in ebay_ebay_obj.get_auth_user(cr, uid, data['sandbox_user_included'], context=context):
+        for user in ebay_ebay_obj.get_auth_user(cr, uid, this.sandbox_user_included, context=context):
             output_selector = [
                 'HasMoreOrders',
                 'OrderArray.Order.AdjustmentAmount',
@@ -129,7 +129,7 @@ class get_order(osv.TransientModel):
             while has_more_orders:
                 call_data=dict()
                 call_data['IncludeFinalValueFee'] = True
-                call_data['NumberOfDays'] = data['number_of_days']
+                call_data['NumberOfDays'] = this.number_of_days
                 call_data['OrderStatus'] = 'Completed'
                 call_data['Pagination'] = {
                     'EntriesPerPage': entries_per_page,
@@ -144,13 +144,15 @@ class get_order(osv.TransientModel):
                 for order in orders:
                     # find existing order
                     domain = [('order_id', '=', order.OrderID)]
-                    ids = sale_order_obj.search(cr, uid, domain, context=context)
+                    ids = ebay_sale_order_obj.search(cr, uid, domain, context=context)
                     if ids:
-                        sale_order = sale_order_obj.browse(cr, uid, ids[0], context=context)
+                        sale_order = ebay_sale_order_obj.browse(cr, uid, ids[0], context=context)
                         last_modified_time = order.CheckoutStatus.LastModifiedTime
                         if sale_order.cs_last_modified_time != ebay_ebay_obj.to_default_format(cr, uid, last_modified_time):
                             # last modified
                             vals = dict()
+                            if order.has_key('CancelReason'):
+                                vals['cancel_reason'] = order.CancelReason
                             checkout_status = order.CheckoutStatus
                             vals['cs_last_modified_time'] = checkout_status.LastModifiedTime
                             vals['cs_ebay_payment_status'] = checkout_status.eBayPaymentStatus
@@ -175,7 +177,6 @@ class get_order(osv.TransientModel):
                             shipping_address = order.ShippingAddress
                             vals = dict()
                             vals['from_ebay'] = True
-                            vals['buyer_user_id'] = order.BuyerUserID
                             vals['address_id'] = address_id
                             vals['address_owner'] = shipping_address.AddressOwner
                             vals['city'] = shipping_address.CityName
@@ -191,7 +192,8 @@ class get_order(osv.TransientModel):
                             country_id = self._search_country_id(cr, uid, country, country_name, context=context)
                             vals['country_id'] = country_id
                             state_or_province = shipping_address.StateOrProvince
-                            vals['state_id'] = self._search_state_id(cr, uid, country_id, state_or_province, context=context)
+                            if state_or_province:
+                                vals['state_id'] = self._search_state_id(cr, uid, country_id, state_or_province, context=context)
                             partner_id = res_partner_obj.create(cr, uid, vals, context=context)
                             
                         # create new order
@@ -201,7 +203,10 @@ class get_order(osv.TransientModel):
                         vals['amount_saved'] = order.AmountSaved.value
                         if order.has_key('BuyerCheckoutMessage'):
                             vals['buyer_checkout_message'] = order.BuyerCheckoutMessage
-                        vals['date_order'] = order.CreatedTime
+                        vals['buyer_user_id'] = order.BuyerUserID
+                        if order.has_key('CancelReason'):
+                            vals['cancel_reason'] = order.CancelReason
+                        vals['created_time'] = order.CreatedTime
                         checkout_status = order.CheckoutStatus
                         vals['cs_last_modified_time'] = checkout_status.LastModifiedTime
                         vals['cs_ebay_payment_status'] = checkout_status.eBayPaymentStatus
@@ -212,56 +217,71 @@ class get_order(osv.TransientModel):
                         vals['paid_time'] = order.PaidTime
                         vals['payment_hold_status'] = order.PaymentHoldStatus
                         vals['sd_record_number'] = order.ShippingDetails.SellingManagerSalesRecordNumber
-                        vals['shipped_time'] = order.ShippedTime
+                        if order.has_key('ShippedTime'):
+                            vals['shipped_time'] = order.ShippedTime
+                            vals['state'] = 'sent'
                         vals['subtotal'] = order.Subtotal.value
                         vals['total'] = order.Total.value
-                        vals['partner_id'] = vals['partner_invoice_id'] = vals['partner_shipping_id'] = partner_id
-                        vals['pricelist_id'] = pricelist_id
-                        if vals['shipped_time']:
-                            vals['state'] = 'progress'
-                        '''
-                        else:
-                            if vals['cs_ebay_payment_status'] == 'NoPaymentFailure':
-                                vals['state'] = 'manual'
-                        '''
-                            
-                        sale_order_id = sale_order_obj.create(cr, uid, vals, context=context)
+                        vals['partner_id'] = partner_id
+                        vals['ebay_user_id'] = user.id
+                        
+                        sale_order_id = ebay_sale_order_obj.create(cr, uid, vals, context=context)
                         
                         # add transactions
-                        sequence = 1
                         transactions = order.TransactionArray.Transaction
                         if type(transactions) != list:
                             transactions = [transactions]
                         for transaction in transactions:
                             # create new sale order line
                             vals = dict()
-                            vals['actual_handling_cost'] = transaction.ActualHandlingCost.get('value')
-                            vals['actual_handling_cost_currency_id'] = transaction.ActualHandlingCost.currencyID
-                            vals['actual_shipping_cost'] = transaction.ActualShippingCost.get('value')
-                            vals['actual_shipping_cost_currency_id'] = transaction.ActualShippingCost.currencyID
+                            vals['actual_handling_cost'] = transaction.ActualHandlingCost.value
+                            vals['actual_shipping_cost'] = transaction.ActualShippingCost.value
+                            vals['created_date'] = transaction.CreatedDate
+                            vals['final_value_fee'] = transaction.FinalValueFee.value
+                            
                             vals['order_line_item_id'] = transaction.OrderLineItemID
+                            vals['quantity_purchased'] = transaction.QuantityPurchased
                             vals['sd_record_number'] = transaction.ShippingDetails.SellingManagerSalesRecordNumber
+                            if order.has_key('ShippedTime'):
+                                vals['shipped_time'] = order.ShippedTime
+                                vals['state'] = 'done'
                             vals['transaction_id'] = transaction.TransactionID
-                            vals['transaction_price'] = transaction.TransactionPrice.get('value')
-                            vals['transaction_price_currency_id'] = transaction.TransactionPrice.currencyID
+                            vals['transaction_price'] = transaction.TransactionPrice.value
                             vals['item_id'] = transaction.Item.ItemID
-                            variation = transaction.get('Variation', {})
-                            vals['view_item_url'] = variation.get('VariationViewItemURL', '')
-                            vals['price_unit'] = vals['transaction_price']
-                            vals['product_uom_qty'] = transaction.QuantityPurchased
-                            sku = variation.get('SKU', '') or transaction.Item.SKU
-                            if not sku and sku.isdigit():
-                                vals['product_id'] = sku
+                            ebay_item_id = ''
+                            sku = transaction.Item.SKU if transaction.Item.has_key('SKU') else ''
+                            if sku:
+                                _data = sku.split('|')
+                                if len(_data) == 2 and _data[0].isdigit() and _data[1].isdigit():
+                                    ebay_item_id = _data[0]
+                                    sku = _data[1]
+                                else:
+                                    ebay_item_id = ''
+                                    sku = ''
+                            name = transaction.Item.Title
+                            if transaction.has_key('Variation'):
+                                _v = transaction.Variation
+                                sku = _v.SKU if _v.has_key('SKU') and _v.SKU.isdigit() else sku
+                                name = _v.VariationTitle
+                                vals['view_item_url'] = _v.VariationViewItemURL if _v.has_key('VariationViewItemURL') else ''
+                            
                             # TODO - shall be used product name instead if product_id is available
-                            vals['name'] = variation.get('VariationTitle', {}).get('value', '') or transaction.Item.Title
+                            vals['name'] = name
                             vals['order_id'] = sale_order_id
-                            vals['sequence'] = sequence
-                            sequence = sequence + 1
-                            sale_order_line_obj.create(cr, uid, vals, context=context)
+                            vals['product_id'] = sku
+                            vals['ebay_item_id'] = ebay_item_id
+                            ebay_sale_order_transaction_obj.create(cr, uid, vals, context=context)
                         
                 page_number = page_number + 1
 
-        return {'type': 'ir.actions.act_window_close'}
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Sale Orders',
+            'view_mode': 'tree,form',
+            'view_type': 'form',
+            'res_model': 'ebay.sale.order',
+            'domain': "[('state','in',('draft', 'progress', 'pending'))]",
+        }
 
 get_order()
 
