@@ -54,6 +54,7 @@
                                 <field name="created_time"/>
                                 <field name="paid_time"/>
                                 <field name="shipped_time"/>
+                                <field name="shipping_service"/>
                             </group>
                         </group>
                         <group>
@@ -132,6 +133,9 @@
                     <separator/>
                     <field name="partner_id" filter_domain="[('partner_id', 'child_of', self)]"/>
                     <field name="ebay_user_id"/>
+                    <field name="buyer_user_id"/>
+                    <field name="sd_record_number"/>
+                    <field name="state"/>
                     <group expand="0" string="Group By...">
                         <filter string="Customer" icon="terp-personal" domain="[]" context="{'group_by':'partner_id'}"/>
                         <filter string="Status" icon="terp-stock_effects-object-colorize" domain="[]" context="{'group_by':'state'}"/>

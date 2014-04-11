@@ -212,6 +212,17 @@ class ebay_user(osv.osv):
     _name = "ebay.user"
     _description = "a registered eBay user"
     
+    @staticmethod
+    def get_shipping_service_type():
+        return [
+            ('hkam', _('HongKongPost Normal Air Mail')),
+            ('hkram', _('HongKongPost Registered AirMail')),
+            ('sgam', _('SingPost Normal Air Mail')),
+            ('sgram', _('SingPost Registered AirMail')),
+        ]
+    def _get_shipping_service_type(self, cr, uid, context=None):
+        return self.get_shipping_service_type()
+    
     _columns = {
         'email': fields.char('Email', size=128, readonly=True),
         'feedback_rating_star': fields.selection([
@@ -271,6 +282,9 @@ class ebay_user(osv.osv):
         'paypal_email_address': fields.char('Paypal Email Address'),
         'country': fields.char('Country', size=2),
         'location': fields.char('Location'),
+        'shipping_service': fields.selection(
+            _get_shipping_service_type, 'Shipping service'
+        ),
         # User Preferences
         'exclude_ship_to_location': fields.text('Exclude Ship To Location', readonly=True),
     }
@@ -283,6 +297,7 @@ class ebay_user(osv.osv):
         'sale_site': '0',
         'country': 'CN',
         'location': 'ShenZhen',
+        'shipping_service': 'sgam',
     }
     
     _order = 'monthly_sales desc'

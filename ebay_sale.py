@@ -31,6 +31,9 @@ from openerp import SUPERUSER_ID
 class ebay_sale_order(osv.osv):
     _name = "ebay.sale.order"
     _description = "eBay order"
+    
+    def _get_shipping_service_type(self, cr, uid, context=None):
+        return self.pool.get('ebay.user').get_shipping_service_type()
 
     _columns = {
         'name': fields.char('Order Reference', size=64, required=True,
@@ -106,6 +109,9 @@ class ebay_sale_order(osv.osv):
         'transactions': fields.one2many('ebay.sale.order.transaction', 'order_id', 'Transactions', readonly=True, states={'draft': [('readonly', False)]}),
         'partner_id': fields.many2one('res.partner', 'Customer', readonly=True, states={'draft': [('readonly', False)], 'sent': [('readonly', False)]}, required=True, change_default=True, select=True, track_visibility='always'),
         'ebay_user_id': fields.many2one('ebay.user', 'eBay User', states={'draft': [('readonly', False)], 'sent': [('readonly', False)]}, select=True, track_visibility='onchange'),
+        'shipping_service': fields.selection(
+            _get_shipping_service_type, 'Shipping service', readonly=True, states={'draft': [('readonly', False)], 'progress': [('readonly', False)], 'pending': [('readonly', False)]}
+        ),
         'state': fields.selection([
             ('draft', 'Draft'),
             ('progress', 'In Progress'),

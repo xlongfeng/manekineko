@@ -66,6 +66,7 @@
                             <field name="country"/>
                             <field name="location"/>
                             <field name="sale_site"/>
+                            <field name="shipping_service"/>
                             <field name="app_id"/>
                             <field name="dev_id"/>
                             <field name="cert"/>

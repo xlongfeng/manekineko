@@ -195,6 +195,7 @@ class get_order(osv.TransientModel):
                             if state_or_province:
                                 vals['state_id'] = self._search_state_id(cr, uid, country_id, state_or_province, context=context)
                             partner_id = res_partner_obj.create(cr, uid, vals, context=context)
+                        partner = res_partner_obj.browse(cr, uid, partner_id, context=context)
                             
                         # create new order
                         vals = dict()
@@ -220,6 +221,7 @@ class get_order(osv.TransientModel):
                         if order.has_key('ShippedTime'):
                             vals['shipped_time'] = order.ShippedTime
                             vals['state'] = 'sent'
+                        vals['shipping_service'] = user.shipping_service
                         vals['subtotal'] = order.Subtotal.value
                         vals['total'] = order.Total.value
                         vals['partner_id'] = partner_id
@@ -236,6 +238,9 @@ class get_order(osv.TransientModel):
                             vals = dict()
                             vals['actual_handling_cost'] = transaction.ActualHandlingCost.value
                             vals['actual_shipping_cost'] = transaction.ActualShippingCost.value
+                            if not partner.email and transaction.Buyer.has_key('Email'):
+                                partner.write(dict(email=transaction.Buyer.Email))
+                                partner.refresh()
                             vals['created_date'] = transaction.CreatedDate
                             vals['final_value_fee'] = transaction.FinalValueFee.value
                             
@@ -280,7 +285,7 @@ class get_order(osv.TransientModel):
             'view_mode': 'tree,form',
             'view_type': 'form',
             'res_model': 'ebay.sale.order',
-            'domain': "[('state','in',('draft', 'progress', 'pending'))]",
+            'context': "{'search_default_state': 'draft'}",
         }
 
 get_order()
