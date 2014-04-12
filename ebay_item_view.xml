@@ -10,7 +10,7 @@
             <field name="type">form</field>
             <field name="arch" type="xml">
                 <form string="ebay item form" version="7.0">
-                    <header>
+                    <header attrs="{'invisible': [('parent_id','!=',False)]}">
                         <button class="oe_highlight" name="action_verify" states="Draft,Completed,Ended" string="Verify" type="object"/>
                         <button class="oe_highlight" name="action_upload" confirm='Are you sure you want to upload this item?' states="Draft,Completed,Ended" string="Upload" type="object"/>
                         <button class="oe_highlight" name="action_revise" confirm='Are you sure you want to revise this item?' states="Active" string="Revise" type="object"/>

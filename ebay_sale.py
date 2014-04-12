@@ -156,41 +156,67 @@ class ebay_sale_order(osv.osv):
             'origin': order.name,
             'date': order.created_time,
             'type': 'out',
-            'state': 'auto',
+            'state': 'draft',
             'move_type': 'one',
             'partner_id': order.partner_id.id,
             'note': order.buyer_checkout_message,
             'invoice_state': 'none',
         }
     
-    def _prepare_order_line_move(self, cr, uid, order, line, picking_id, date_planned, context=None):
+    def _prepare_order_line_move(self, cr, uid, order, line, picking_id, ebay_item, context=None):
+        warehouse_id = self.pool.get('stock.warehouse').search(cr, uid, [], context=context)[0]
+        warehouse = self.pool.get('stock.warehouse').browse(cr, uid, warehouse_id, context=context)
+        property_out = order.partner_id.property_stock_customer
         return {
             'name': line.name,
             'picking_id': picking_id,
-            'product_id': line.product_id.id,
-            'product_qty': line.product_uom_qty,
-            'product_uom': line.product_uom.id,
-            'product_uos_qty': line.product_uom_qty,
-            'product_uos': line.product_uom.id,
+            'product_id': ebay_item.product_id.id,
+            'product_qty': ebay_item.product_uom_qty * line.quantity_purchased,
+            'product_uom': ebay_item.product_uom.id,
+            'product_uos_qty': ebay_item.product_uom_qty * line.quantity_purchased,
+            'product_uos': ebay_item.product_uom.id,
+            'location_id': warehouse.lot_stock_id.id,
+            'location_dest_id': property_out.id,
             'partner_id': order.partner_id.id,
             'tracking_id': False,
             'state': 'draft',
             #'state': 'waiting',
-            'company_id': order.company_id.id,
             'price_unit': line.transaction_price
         }
     
     def _create_pickings(self, cr, uid, order, context=None):
-        if order.state == 'draft' and order.state == 'pending' \
+        if (order.state == 'draft' or order.state == 'pending') \
             and order.cs_ebay_payment_status == 'NoPaymentFailure' and order.cs_status == 'Complete':
             move_obj = self.pool.get('stock.move')
             picking_obj = self.pool.get('stock.picking')
             
+            # check all line avaiable
             for line in order.transactions:
-                if line.product_id and line.product_id.exists():
-                    date_planned = order.paid_time
+                if line.ebay_item_variation_id:
+                    ebay_item_id = line.ebay_item_variation_id
+                    product_id = ebay_item_id.product_id
+                elif line.ebay_item_id:
+                    ebay_item_id = line.ebay_item_id
+                    product_id = ebay_item_id.product_id
+                else:
+                    return
+                
+                if not ebay_item_id.exists() or not product_id.exists():
+                    return
+             
+            for line in order.transactions:
+                if line.ebay_item_variation_id:
+                    ebay_item_id = line.ebay_item_variation_id
+                    product_id = ebay_item_id.product_id
+                elif line.ebay_item_id:
+                    ebay_item_id = line.ebay_item_id
+                    product_id = ebay_item_id.product_id
+                else:
+                    ebay_item_id = False
+                    product_id = False
+                if ebay_item_id and ebay_item_id.exists() and product_id and product_id.exists():
                     picking_id = picking_obj.create(cr, uid, self._prepare_order_picking(cr, uid, order, context=context))
-                    move_id = move_obj.create(cr, uid, self._prepare_order_line_move(cr, uid, order, line, picking_id, date_planned, context=context))
+                    move_id = move_obj.create(cr, uid, self._prepare_order_line_move(cr, uid, order, line, picking_id, ebay_item_id, context=context))
                     order.write({'state': 'progress'})
     
     def action_confirm(self, cr, uid, ids, context=None):

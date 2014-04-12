@@ -236,6 +236,7 @@ class get_order(osv.TransientModel):
                         for transaction in transactions:
                             # create new sale order line
                             vals = dict()
+                            
                             vals['actual_handling_cost'] = transaction.ActualHandlingCost.value
                             vals['actual_shipping_cost'] = transaction.ActualShippingCost.value
                             if not partner.email and transaction.Buyer.has_key('Email'):
@@ -244,6 +245,7 @@ class get_order(osv.TransientModel):
                             vals['created_date'] = transaction.CreatedDate
                             vals['final_value_fee'] = transaction.FinalValueFee.value
                             
+                            vals['order_id'] = sale_order_id
                             vals['order_line_item_id'] = transaction.OrderLineItemID
                             vals['quantity_purchased'] = transaction.QuantityPurchased
                             vals['sd_record_number'] = transaction.ShippingDetails.SellingManagerSalesRecordNumber
@@ -253,28 +255,19 @@ class get_order(osv.TransientModel):
                             vals['transaction_id'] = transaction.TransactionID
                             vals['transaction_price'] = transaction.TransactionPrice.value
                             vals['item_id'] = transaction.Item.ItemID
-                            ebay_item_id = ''
                             sku = transaction.Item.SKU if transaction.Item.has_key('SKU') else ''
-                            if sku:
-                                _data = sku.split('|')
-                                if len(_data) == 2 and _data[0].isdigit() and _data[1].isdigit():
-                                    ebay_item_id = _data[0]
-                                    sku = _data[1]
-                                else:
-                                    ebay_item_id = ''
-                                    sku = ''
+                            if sku and sku.isdigit():
+                                vals['ebay_item_id'] = sku
                             name = transaction.Item.Title
                             if transaction.has_key('Variation'):
                                 _v = transaction.Variation
-                                sku = _v.SKU if _v.has_key('SKU') and _v.SKU.isdigit() else sku
+                                if _v.has_key('SKU') and _v.SKU.isdigit():
+                                    vals['ebay_item_variation_id'] = _v.SKU
                                 name = _v.VariationTitle
                                 vals['view_item_url'] = _v.VariationViewItemURL if _v.has_key('VariationViewItemURL') else ''
-                            
-                            # TODO - shall be used product name instead if product_id is available
+                                
                             vals['name'] = name
-                            vals['order_id'] = sale_order_id
-                            vals['product_id'] = sku
-                            vals['ebay_item_id'] = ebay_item_id
+                            
                             ebay_sale_order_transaction_obj.create(cr, uid, vals, context=context)
                         
                 page_number = page_number + 1

@@ -45,7 +45,7 @@ class ebay_item_synchronize(osv.TransientModel):
     
     _columns = {
         'ebay_user_id': fields.many2one('ebay.user', 'eBay User', required=True, domain=[('ownership','=',True)]),
-        'autocreate': fields.boolean('Autocreate not exist inventory'),
+        'autocreate': fields.boolean('Auto Create not exist inventory'),
         'defer': fields.boolean('Deferred fetching pictures'),
         'new_count': fields.integer('New List', readonly=True),
         'updated_count': fields.integer('Updated List', readonly=True),
