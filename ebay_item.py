@@ -295,7 +295,6 @@ class ebay_eps_picture(osv.osv):
         'picture_format': fields.char('PictureFormat', readonly=True),
         'picturesetmember_ids': fields.one2many('ebay.eps.picturesetmember', 'ebay_eps_picture_id', 'PictureSetMember', readonly=True),
         'use_by_date': fields.datetime('UseByDate', readonly=True),
-        'variation_specific_value': fields.char('Variation Specific Value', size=40),
         'ebay_item_id': fields.many2one('ebay.item', 'Item', readonly=True, ondelete='cascade'),
     }
     
@@ -401,56 +400,17 @@ class ebay_shippingdetails(osv.osv):
     
 ebay_shippingdetails()
 
-class ebay_item_variation(osv.osv):
-    _name = "ebay.item.variation"
-    _description = "eBay item variation"
-    
-    def _get_item_active(self, cr, uid, ids, field_name, arg, context):
-        if context is None:
-            context = {}
-        res = {}
-        for record in self.browse(cr, uid, ids, context=context):
-            res[record.id] = True if record.ebay_item_id.state == 'Active' else False
-        return res
-    
-    _columns = {
-        'quantity': fields.integer('Quantity', required=True),
-        'product_id': fields.many2one('product.product', 'Product', ondelete='no action'),
-        'start_price': fields.float('Price', required=True),
-        'variation_specifics': fields.text('Value', help='''
-Primary value1
-Secondary value1
-...
-        '''),
-        'quantity_sold': fields.integer('Quantity Sold', readonly=True),
-        'deleted': fields.boolean('Deleted'),
-        'active': fields.function(_get_item_active, type='boolean', method="True", string='Active'),
-        'ebay_item_id': fields.many2one('ebay.item', 'Item', ondelete='cascade'),
-    }
-    
-    _defaults = {
-        'quantity': 99,
-        'start_price': 9.99,
-    }
-    
-    _rec_name = 'product_id'
-    
-    _order = 'variation_specifics'
-    
-    def unlink(self, cr, uid, ids, context=None, check=True):
-        if check:
-            for variation in self.browse(cr, uid, ids, context=context):
-                if not variation.active:
-                    variation.unlink(check=False)
-                else:
-                    variation.write(dict(deleted=True))
-        else:
-            return super(ebay_item_variation, self).unlink(cr, uid, ids, context=context)
-        
-        return True
-    
-    
-ebay_item_variation()
+def split_str(s, sep):
+    if not s:
+        return list()
+    if sep == '\n':
+        s_list = s.splitlines()
+    else:
+        s_list = s.split(sep)
+    d = list()
+    for l in s_list:
+        d.append(l.strip())
+    return d
 
 class ebay_item(osv.osv):
     _name = "ebay.item"
@@ -526,16 +486,14 @@ GTC (only for Fixed Price)
         #PictureDetails
         'eps_picture_ids': fields.one2many('ebay.eps.picture', 'ebay_item_id', 'Picture'),
         'postal_code': fields.char('PostalCode'),
-        'primary_category_id': fields.many2one('ebay.category', 'Category', required=True, ondelete='set null'),
-        'quantity': fields.integer('Quantity'),
+        'primary_category_id': fields.many2one('ebay.category', 'Category', ondelete='set null'),
+        'quantity': fields.integer('Quantity', required=True),
         'return_policy_id': fields.many2one('ebay.returnpolicy', 'Return Policy', ondelete='set null'),
         'schedule_time': fields.datetime('ScheduleTime'),
         'secondary_category_id': fields.many2one('ebay.category', '2nd Category', ondelete='set null'),
         'shipping_details_id': fields.many2one('ebay.shippingdetails', 'Shipping Details', ondelete='set null'),
         'shipping_terms_in_description': fields.boolean('ShippingTermsInDescription'),
         'site': fields.char('Site', size=16),
-        # SKU, id|product_id
-        'product_id': fields.many2one('product.product', 'Product', ondelete='set null'),
         'start_price': fields.float('StartPrice', required=True),
         # Storefront
         'store_category2id': fields.integer('2nd Store Category'),
@@ -543,7 +501,7 @@ GTC (only for Fixed Price)
         'store_category_id': fields.integer('Store Category'),
         'store_category_name': fields.char('Store Category'),
         'subtitle': fields.char('SubTitle', size=55),
-        'name': fields.char('Title', size=80, required=True, select=True),
+        'name': fields.char('Title', required=True, select=True),
         'uuid': fields.char('UUID', size=32),
         # Variations
         'variation_invalid': fields.boolean('Variation Invalid'),
@@ -558,12 +516,18 @@ oldname2 | newname2
 Primary value1 | Primary value2 ...
 Secondary value1 | Secondary value2 ...
         '''),
-        'variation_ids': fields.one2many('ebay.item.variation', 'ebay_item_id', 'Variantions'),
+        'parent_id': fields.many2one('ebay.item', 'Parent Item', select=True, ondelete='cascade'),
+        'child_ids': fields.one2many('ebay.item', 'parent_id', 'Child Item'),
+        'variation_deleted': fields.boolean('Delete'),
+        # SKU
+        'product_id': fields.many2one('product.product', 'Product', ondelete='set null'),
+        'product_uom_qty': fields.float('Product Quantity', digits_compute= dp.get_precision('Product UoS'), required=True),
+        'product_uom': fields.many2one('product.uom', 'Unit of Measure ', required=True),
         # Item Status ------------
         'bid_count': fields.integer('Bit Count', readonly=True),
         'end_time': fields.datetime('End Time', readonly=True),
         'hit_count': fields.integer('Hit Count', readonly=True),
-        'item_id': fields.char('Item ID', size=38, readonly=True),
+        'item_id': fields.char('Item ID', size=38),
         'quantity_sold': fields.integer('Quantity Sold', readonly=True),
         'start_time': fields.datetime('Start Time', readonly=True),
         'state': fields.selection([
@@ -571,7 +535,7 @@ Secondary value1 | Secondary value2 ...
             ('Active', 'Active'),
             ('Completed', 'Completed'),
             ('Ended', 'Ended'),
-        ], 'Listing Status', readonly=True),
+        ], 'Status', readonly=True),
         'time_left': fields.char('Time Left', readonly=True),
         'revise_date': fields.datetime('Revise Date', readonly=True),
         'update_date': fields.datetime('Update Date', readonly=True),
@@ -587,8 +551,16 @@ Secondary value1 | Secondary value2 ...
             ('Australia', 'Australia'),
             ('HongKong', 'HongKong'),
         ], 'Site', required=True),
-        'ebay_user_id': fields.many2one('ebay.user', 'Account', required=True, domain=[('ownership','=',True)], ondelete='set null'),
+        'ebay_user_id': fields.many2one('ebay.user', 'Account', domain=[('ownership','=',True)], ondelete='set null'),
     }
+    
+    def _get_uom_id(self, cr, uid, *args):
+        try:
+            proxy = self.pool.get('ir.model.data')
+            result = proxy.get_object_reference(cr, uid, 'product', 'product_uom_unit')
+            return result[1]
+        except Exception, ex:
+            return False
     
     _defaults = {
         'buy_it_now_price': 19.99,
@@ -603,8 +575,12 @@ Secondary value1 | Secondary value2 ...
         'listing_duration': 'GTC',
         'listing_type': 'FixedPriceItem',
         'location': 'ShenZhen',
-        'quantity': 1,
+        'quantity': 99,
+        'variation_invalid': True,
+        'variation_deleted': False,
         'start_price': 9.99,
+        'product_uom_qty': 1,
+        'product_uom': _get_uom_id,
         'state': 'Draft',
         'site': 'US',
         'uuid': lambda self, cr, uid, context: uuid.uuid1().hex,
@@ -633,17 +609,44 @@ Secondary value1 | Secondary value2 ...
     def on_change_listing_type(self, cr, uid, id, primary_category_id, listing_type, context=None):
         return self.on_change_primary_category_id(cr, uid, id, primary_category_id, listing_type, context=context)
     
+    def on_change_variation_specifics_set(self, cr, uid, id, variation_specifics_set, context=None):
+        value = dict()
+        specifics_set = split_str(variation_specifics_set, '\n')
+        value['name'] = '[%s]' % ']['.join(specifics_set)
+        return {
+            'value': value
+        }
+    
+    def copy(self, cr, uid, id, default=None, context=None):
+        if default is None:
+            default = {}
+    
     def copy(self, cr, uid, id, default=None, context=None):
         if default is None:
             default = {}
         
+        name = self.read(cr, uid, id, ['name'], context=context)['name']
+        default = default.copy()
         default.update({
+            'name': name + _(' (Copy)'),
             'item_id': '',
             'state': 'Draft',
             'uuid': uuid.uuid1().hex,
         })
 
         return super(ebay_item, self).copy(cr, uid, id, default, context)
+    
+    def unlink(self, cr, uid, ids, context=None, check=True):
+        if check:
+            for variation in self.browse(cr, uid, ids, context=context):
+                if not variation.state != 'Active':
+                    variation.unlink(check=False)
+                else:
+                    variation.write(dict(variation_deleted=True))
+        else:
+            return super(ebay_item, self).unlink(cr, uid, ids, context=context)
+        
+        return True
     
     def upload_pictures(self, cr, uid, user, eps_pictures, context=None):
         if not eps_pictures:
@@ -683,28 +686,20 @@ Secondary value1 | Secondary value2 ...
                     
         return eps_pictures
     
-    def variation_dict(self, cr, uid, item, item_dict, eps_pictures, context=None):
-        def split_str(s, sep):
-            if not s:
-                return list()
-            if sep == '\n':
-                s_list = s.splitlines()
-            else:
-                s_list = s.split(sep)
-            d = list()
-            for l in s_list:
-                d.append(l.strip())
-            return d
+    def variation_dict(self, cr, uid, item, item_dict, context=None): 
+        if not item.child_ids:
+            return
                 
         user = item.ebay_user_id
         item_dict['Item']['Variations'] = dict()
         specific_names = split_str(item.variation_specific_name, '|')
         
+        pictures = dict()
         variants = list()
-        for variant in item.variation_ids:
+        for variant in item.child_ids:
             index = 0
             name_value_list = list()
-            for value in split_str(variant.variation_specifics, '\n'):
+            for value in split_str(variant.variation_specifics_set, '\n'):
                 name_value_list.append(dict(
                     Name=specific_names[index],
                     Value=value,
@@ -712,13 +707,19 @@ Secondary value1 | Secondary value2 ...
                 index+=1
             v = dict(
                     Quantity=variant.quantity,
-                    SKU=variant.product_id.id,
+                    SKU=variant.id,
                     StartPrice=variant.start_price,
                     VariationSpecifics=dict(
                         NameValueList=name_value_list if len(name_value_list) > 1 else name_value_list[0],
                     )
                 )
-            if variant.deleted:
+            eps_pictures = self.upload_pictures(cr, uid, user, variant.eps_picture_ids, context=context)
+            specific_value = name_value_list[0]['Value']
+            for _pic in eps_pictures:
+                if not pictures.has_key(specific_value):
+                    pictures[specific_value] = list()
+                pictures[specific_value].append(_pic.full_url)
+            if variant.variation_deleted:
                 if variant.quantity_sold > 0:
                     v['Quantity'] = 0
                 else:
@@ -726,6 +727,22 @@ Secondary value1 | Secondary value2 ...
             variants.append(v)
         item_dict['Item']['Variations']['Variation'] = variants if len(variants) > 1 else variants[0]
         
+        if pictures:
+            picture_set = dict(
+                VariationSpecificName=specific_names[0],
+                VariationSpecificPictureSet=dict()
+            )
+            variation_specific_picture_set = list()
+            for key, value in pictures.items():
+                variation_specific_picture_set.append(dict(
+                    PictureURL=value if len(value) > 1 else value[0],
+                    VariationSpecificValue=key,
+                ))
+            picture_set['VariationSpecificPictureSet'] = variation_specific_picture_set \
+                if len(variation_specific_picture_set) > 1 \
+                else variation_specific_picture_set[0]
+            item_dict['Item']['Variations']['Pictures'] = picture_set
+            
         name_value_list = list()
         index = 0
         for specific_values in split_str(item.variation_specifics_set, '\n'):
@@ -739,32 +756,7 @@ Secondary value1 | Secondary value2 ...
         item_dict['Item']['Variations']['VariationSpecificsSet'] = dict(
             NameValueList=name_value_list if len(name_value_list) > 1 else name_value_list[0]
         )
-        
-        picture_set = dict()
-        for picture in eps_pictures:
-            if picture.full_url and picture.variation_specific_value:
-                # omit picture not in specific values
-                if picture.variation_specific_value not in name_value_list[0]['Value']:
-                    continue
-                if picture.variation_specific_value not in picture_set:
-                    picture_set[picture.variation_specific_value] = list()
-                picture_set[picture.variation_specific_value].append(picture.full_url)
-        if picture_set:
-            pictures = dict(
-                VariationSpecificName=specific_names[0],
-                VariationSpecificPictureSet=dict()
-            )
-            variation_specific_picture_set = list()
-            for key, value in picture_set.items():
-                variation_specific_picture_set.append(dict(
-                    PictureURL=value if len(value) > 1 else value[0],
-                    VariationSpecificValue=key,
-                ))
-            pictures['VariationSpecificPictureSet'] = variation_specific_picture_set \
-                if len(variation_specific_picture_set) > 1 \
-                else variation_specific_picture_set[0]
-            item_dict['Item']['Variations']['Pictures'] = pictures
-                    
+    
     def item_create(self, cr, uid, item, context=None):
         user = item.ebay_user_id
         auction = item.listing_type == 'Chinese'
@@ -793,7 +785,7 @@ Secondary value1 | Secondary value2 ...
                 'PrimaryCategory': dict(CategoryID=item.primary_category_id.category_id),
                 'Quantity': item.quantity,
                 'Site': item.site,
-                'SKU': '%s|%s' % (item.id, item.product_id.id),
+                'SKU': item.id,
                 'StartPrice': item.start_price,
                 'Title': '<![CDATA[' + item.name + ']]>',
                 'UUID': item.uuid,
@@ -803,12 +795,7 @@ Secondary value1 | Secondary value2 ...
         eps_pictures = self.upload_pictures(cr, uid, user, item.eps_picture_ids, context=context)
         picture_url = list()
         for picture in eps_pictures:
-            if picture.full_url:
-                if auction \
-                    or (not auction and not item.variation) \
-                    or (not auction and item.variation and not picture.variation_specific_value):
-                    picture_url.append(picture.full_url)
-                    picture.write(dict(use_by_date=(datetime.now() + timedelta(90))))
+            picture_url.append(picture.full_url)
         else:
             if len(picture_url) == 1:
                 item_dict['Item']['PictureDetails'] = dict(
@@ -831,7 +818,7 @@ Secondary value1 | Secondary value2 ...
             # Variations
             if not item.variation_invalid and item.variation:
                 del item_dict['Item']['Quantity']
-                self.variation_dict(cr, uid, item, item_dict, eps_pictures, context=context)
+                self.variation_dict(cr, uid, item, item_dict, context=context)
         if item.buyer_requirement_details_id:
             brd = item.buyer_requirement_details_id
             buyer_requirement_details = dict(
@@ -916,6 +903,22 @@ Secondary value1 | Secondary value2 ...
             del item_dict['Item']['Title']
         return item_dict, auction
     
+    def item_post_update(self, cr, uid, item, context=None):
+        def eps_picture_extend_use_by_date(item):
+            eps_picture = item.eps_picture_ids
+            if eps_picture:
+                for picture in eps_picture:
+                    picture.write(dict(use_by_date=(datetime.now() + timedelta(90))))
+        
+        item.refresh()
+        eps_picture_extend_use_by_date(item)
+        
+        varations = item.child_ids
+        if varations:
+            for varation in varations:
+                eps_picture_extend_use_by_date(varation)
+                varation.write({'state': item.state})
+    
     def action_verify(self, cr, uid, ids, context=None):
         for item in self.browse(cr, uid, ids, context=context):
             user = item.ebay_user_id
@@ -955,6 +958,7 @@ Secondary value1 | Secondary value2 ...
             vals['state'] = 'Active'
             vals['response'] = api.response.json()
             item.write(vals)
+            self.item_post_update(cr, uid, item, context=context)
             
         return True
         
@@ -968,18 +972,18 @@ Secondary value1 | Secondary value2 ...
             
             if item.variation:
                 # delete variation firstly
-                has_deleted_variation = False
-                for variation in item.variation_ids:
-                    if variation.deleted:
-                        has_deleted_variation = True
+                has_variation_deleted = False
+                for variation in item.child_ids:
+                    if variation.variation_deleted:
+                        has_variation_deleted = True
                         break
-                if has_deleted_variation:
+                if has_variation_deleted:
                     item_dict, auction = self.item_revise(cr, uid, item, context=context)
                     error_msg = 'Revise item: %s' % item.name
                     call_name = "ReviseFixedPriceItem"
                     api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
-                    for variation in item.variation_ids:
-                        if variation.deleted:
+                    for variation in item.child_ids:
+                        if variation.variation_deleted:
                             variation.unlink(check=False)
                             
                 # modify specific name secondly
@@ -1018,6 +1022,7 @@ Secondary value1 | Secondary value2 ...
             vals['revise_date'] = fields.datetime.now()
             vals['response'] = api.response.json()
             item.write(vals)
+            self.item_post_update(cr, uid, item, context=context)
             
         return True
         
@@ -1057,40 +1062,34 @@ Secondary value1 | Secondary value2 ...
             vals['time_left'] = reply.Item.TimeLeft
             vals['update_date'] = fields.datetime.now()
             vals['watch_count'] = reply.Item.WatchCount
-            if  reply.Item.has_key('Variations'):
-                def _find_match_variation(variations, name_value_list, quantity_sold):
-                    values = ''
-                    if type(name_value_list) == list:
-                        for name_value in name_value_list:
-                            values += name_value.Value
-                    else:
-                        values = name_value_list.Value
-                    
-                    for variation in variations:
-                        specifices = variation.variation_specifics.replace(' ', '').replace('\n', '').replace('\r', '')
-                        if specifices == values:
-                            variation.write(dict(quantity_sold=quantity_sold))
-                            break
-                        
+            if reply.Item.has_key('Variations'):
                 for variation in reply.Item.Variations.Variation:
-                    _find_match_variation(
-                        item.variation_ids,
-                        variation.VariationSpecifics.NameValueList,
-                        variation.SellingStatus.QuantitySold,
-                    )
+                    _id = variation.SKU if variation.has_key('SKU') and variation.SKU.isdigit() else ''
+                    if _id:
+                        record = self.browse(cr, uid, int(_id), context=context)
+                        if record.exists():
+                            record.write(dict(quantity_sold=variation.SellingStatus.QuantitySold))
             item.write(vals)
-            eps_pictures = item.eps_picture_ids
-            if eps_pictures:
-                for picture in eps_pictures:
-                    vals = dict()
-                    if picture.dummy:
-                        try:
-                            vals['image'] = base64.encodestring(urllib2.urlopen(picture.full_url).read())
-                        except:
-                            pass
-                        else:
-                            vals['dummy'] = False
-                            picture.write(vals)
+            self.item_post_update(cr, uid, item, context=context)
+            
+            def eps_picture_fetch(item):
+                eps_pictures = item.eps_picture_ids
+                if eps_pictures:
+                    for picture in eps_pictures:
+                        vals = dict()
+                        if picture.dummy:
+                            try:
+                                vals['image'] = base64.encodestring(urllib2.urlopen(picture.full_url).read())
+                            except:
+                                pass
+                            else:
+                                vals['dummy'] = False
+                                picture.write(vals)
+            eps_picture_fetch(item)
+            varations = item.child_ids
+            if varations:
+                for varation in varations:
+                    eps_picture_fetch(varation)
         return True
         
     def action_end_listing(self, cr, uid, ids, context=None):
@@ -1112,6 +1111,7 @@ Secondary value1 | Secondary value2 ...
             vals['end_time'] = api.response.reply.EndTime
             vals['state'] = 'Ended'
             item.write(vals)
+            self.item_post_update(cr, uid, item, context=context)
             
         return True
         

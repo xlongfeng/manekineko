@@ -224,6 +224,14 @@ class ebay_sale_order_transaction(osv.osv):
     _name = "ebay.sale.order.transaction"
     _description = "eBay order transaction"
     
+    def _get_variation(self, cr, uid, ids, field_name, arg, context):
+        if context is None:
+            context = {}
+        res = {}
+        for record in self.browse(cr, uid, ids, context=context):
+            res[record.id] = record.ebay_item_id.variation
+        return res
+    
     _columns = {
         'name': fields.char('Description', required=True, readonly=True, states={'draft': [('readonly', False)]}),
         'actual_handling_cost': fields.float('Handling Cost'),
@@ -243,8 +251,9 @@ class ebay_sale_order_transaction(osv.osv):
         'view_item_url': fields.char('View Item URL', readonly=True),
         
         'order_id': fields.many2one('ebay.sale.order', 'Order Reference', required=True, ondelete='cascade', select=True, readonly=True, states={'draft':[('readonly',False)]}),
-        'product_id': fields.many2one('product.product', 'Product', domain=[('sale_ok', '=', True)], change_default=True),
-        'ebay_item_id': fields.many2one('ebay.item', 'Item', change_default=True),
+        'ebay_item_id': fields.many2one('ebay.item', 'Item', domain=[('state', '=', 'Active')], change_default=True),
+        'ebay_item_variation_id': fields.many2one('ebay.item', 'Variation', domain="[('parent_id', '=', ebay_item_id)]", change_default=True),
+        'variation': fields.function(_get_variation, type='boolean', method="True", string='Variation'),
         'order_partner_id': fields.related('order_id', 'partner_id', type='many2one', relation='res.partner', store=True, string='Customer'),
         'ebay_user_id':fields.related('order_id', 'ebay_user_id', type='many2one', relation='ebay.user', store=True, string='eBay User'),
         'state': fields.selection([('draft', 'Draft'),('confirmed', 'Confirmed'),('cancel', 'Cancelled'),('exception', 'Exception'),('done', 'Done')], 'Status', required=True, readonly=True,
@@ -263,4 +272,24 @@ class ebay_sale_order_transaction(osv.osv):
     
     _order = 'sd_record_number desc'
     
+    def on_change_ebay_item_id(self, cr, uid, id, ebay_item_id, context=None):
+        value = dict()
+        item = self.pool.get('ebay.item').browse(cr, uid, ebay_item_id, context=context)
+        value['name'] = item.name
+        value['ebay_item_variation_id'] = False
+        value['variation'] = item.variation
+        value['transaction_price'] = item.start_price
+        return {
+            'value': value
+        }
+    
+    def on_change_ebay_item_variation_id(self, cr, uid, id, ebay_item_id, ebay_item_variation_id, context=None):
+        value = dict()
+        item = self.pool.get('ebay.item').browse(cr, uid, [ebay_item_id, ebay_item_variation_id], context=context)
+        value['name'] = '%s%s' % (item[0].name, item[1].name)
+        value['transaction_price'] = item[1].start_price
+        return {
+            'value': value
+        }
+
 ebay_sale_order_transaction()

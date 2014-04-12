@@ -86,8 +86,9 @@
                                 </header>
                                 <group>
                                     <field name="name"/>
-                                    <field name="product_id"/>
-                                    <field name="ebay_item_id"/>
+                                    <field name="ebay_item_id" on_change="on_change_ebay_item_id(ebay_item_id)"/>
+                                    <field name="ebay_item_variation_id" on_change="on_change_ebay_item_variation_id(ebay_item_id, ebay_item_variation_id)" attrs="{'invisible': [('variation','=',False)]}"/>
+                                    <field name="variation" invisible="1"/>
                                     <field name="sd_record_number"/>
                                 </group>
                                 <group>
@@ -107,7 +108,6 @@
                             </form>
                             <tree string="Order Transactions">
                                 <field name="sd_record_number"/>
-                                <field name="product_id"/>
                                 <field name="name"/>
                                 <field name="quantity_purchased"/>
                                 <field name="transaction_price"/>

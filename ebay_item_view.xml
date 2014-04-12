@@ -20,14 +20,17 @@
                     </header>
                     <sheet>
                         <field name="view_item_url" widget="url" attrs="{'invisible': [('item_id','=',False)]}"/>
+                        <field name="parent_id" invisible="1"/>
                         <group>
                             <group>
                                 <field name="product_id"/>
-                                <field name="item_id"/>
+                                <field name="product_uom_qty"/>
+                                <field name="product_uom"/>
                             </group>
-                            <group>
+                            <group attrs="{'invisible': [('parent_id','!=',False)]}">
                                 <field name="site" attrs="{'readonly': [('state','!=','Draft')]}"/>
                                 <field name="ebay_user_id" attrs="{'readonly': [('state','!=','Draft')]}"/>
+                                <field name="item_id"/>
                             </group>
                         </group>
                         <group string="Title and Category">
@@ -43,7 +46,7 @@
                             </div>
                         </group>
                         <group>
-                            <group string="Details">
+                            <group string="Details" attrs="{'invisible': [('parent_id','!=',False)]}">
                                 <field name="item_specifics"/>
                                 <field name="condition_id"/>
                                 <field name="condition_description_id"/>
@@ -62,24 +65,80 @@
                             <field name="variation_modify_specific_name" attrs="{'invisible': [('variation','=',False)]}"/>
                             <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)], 'readonly': [('state','=','Active')]}"/>
                             <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
-                            <field name="variation_ids" attrs="{'invisible': [('variation','=',False)]}">
+                            <field name="child_ids" attrs="{'invisible': [('variation','=',False)]}">
                                 <tree>
                                     <field name="product_id"/>
-                                    <field name="variation_specifics"/>
+                                    <field name="product_uom_qty"/>
+                                    <field name="variation_specifics_set" string="Value"/>
                                     <field name="start_price"/>
                                     <field name="quantity"/>
-                                    <field name="deleted"/>
                                     <field name="quantity_sold"/>
                                 </tree>
                                 <form string="Variation" version="7.0">
+                                    <header>
+                                        <field name="state" widget="statusbar"/>
+                                    </header>
                                     <group>
-                                        <field name="product_id" attrs="{'readonly': [('deleted','=',True)]}"/>
-                                        <field name="variation_specifics" attrs="{'readonly': ['|',('deleted','=',True),('active','=',True)]}"/>
-                                        <field name="start_price" attrs="{'readonly': [('deleted','=',True)]}"/>
-                                        <field name="quantity" attrs="{'readonly': [('deleted','=',True)]}"/>
-                                        <field name="deleted"/>
-                                        <field name="active" invisible='1'/>
+                                        <field name="name" invisible="1"/>
+                                        <field name="product_id"/>
+                                        <field name="product_uom_qty"/>
+                                        <field name="product_uom"/>
+                                        <field name="variation_specifics_set" string="Value" attrs="{'readonly': ['|',('variation_deleted','=',True),('state','=','Active')]}" on_change="on_change_variation_specifics_set(variation_specifics_set)"/>
+                                        <field name="start_price" attrs="{'readonly': [('variation_deleted','=',True)]}"/>
+                                        <field name="quantity" attrs="{'readonly': [('variation_deleted','=',True)]}"/>
+                                        <field name="variation_deleted"/>
                                     </group>
+                                    <label for="eps_picture_ids"/>
+                                    <field name="eps_picture_ids" mode="kanban">
+                                        <kanban>
+                                            <field name="name"/>
+                                            <field name="has_image"/>
+                                            <templates>
+                                                <t t-name="kanban-box">
+                                                    <div class="oe_kanban_vignette">
+                                                        <a t-if="! read_only_mode" type="delete" style="position: absolute; right: 0; padding: 4px; diplay: inline-block">Delete</a>
+                                                        <a type="open">
+                                                            <t t-if="record.has_image.raw_value === true and (!record.image or record.image.raw_value === false)">
+                                                                <img t-att-src="kanban_image('ebay.eps.picture', 'image', record.id.value, {'preview_image': 'image_small'})" class="oe_avatar oe_kanban_image"/>
+                                                            </t>
+                                                            <t t-if="record.image and record.image.raw_value !== false">
+                                                                <img t-att-src="'data:image/png;base64,'+record.image.raw_value" class="oe_avatar oe_kanban_image"/>
+                                                            </t>
+                                                        </a>
+                                                        <div class="oe_kanban_details">
+                                                            <h4 class="oe_partner_heading"><a type="open"><field name="name"/></a></h4>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </templates>
+                                        </kanban>
+                                        <form string="EPS Picture" version="7.0">
+                                            <sheet>
+                                                <field name="image" widget='image' class="oe_avatar oe_left" options='{"preview_image": "image_medium", "size": [128, 128]}'/>
+                                                <div class="oe_title">
+                                                    <div class="oe_edit_only">
+                                                        <label for="name"/>
+                                                    </div>
+                                                    <h1>
+                                                        <field name="name" default_focus="1" placeholder="Name" />
+                                                    </h1>
+                                                </div>
+                                                <group>
+                                                    <field name="use_by_date"/>
+                                                    <field name="full_url" widget="url"/>
+                                                    <field name="base_url"/>
+                                                    <field name="picture_format"/>
+                                                </group>
+                                                <field name="picturesetmember_ids">
+                                                    <tree string="Picture Set Member">
+                                                        <field name="member_url" widget="url"/>
+                                                        <field name="picture_height"/>
+                                                        <field name="picture_width"/>
+                                                    </tree>
+                                                </field>
+                                            </sheet>
+                                        </form>
+                                    </field>
                                 </form>
                             </field>
                         </group>
@@ -89,7 +148,6 @@
                                     <kanban>
                                         <field name="name"/>
                                         <field name="has_image"/>
-                                        <field name="variation_specific_value"/>
                                         <templates>
                                             <t t-name="kanban-box">
                                                 <div class="oe_kanban_vignette">
@@ -104,7 +162,6 @@
                                                     </a>
                                                     <div class="oe_kanban_details">
                                                         <h4 class="oe_partner_heading"><a type="open"><field name="name"/></a></h4>
-                                                        <div t-if="record.variation_specific_value.raw_value"><field name="variation_specific_value"/></div>
                                                     </div>
                                                 </div>
                                             </t>
@@ -120,10 +177,6 @@
                                                 <h1>
                                                     <field name="name" default_focus="1" placeholder="Name" />
                                                 </h1>
-                                                <div class="oe_edit_only">
-                                                    <label for="variation_specific_value"/>
-                                                </div>
-                                                <field name="variation_specific_value"/>
                                             </div>
                                             <group>
                                                 <field name="use_by_date"/>
@@ -142,13 +195,13 @@
                                     </form>
                                 </field>
                             </page>
-                            <page string="Description" style="min-height:480px">
+                            <page string="Description" style="min-height:480px" attrs="{'invisible': [('parent_id','!=',False)]}">
                                 <group>
                                     <field name="description_tmpl_id"/>
                                 </group>
                                 <field name="description" widget="ckeditor"/>
                             </page>
-                            <page string="Shipping and Policies" style="min-height:480px">
+                            <page string="Shipping and Policies" style="min-height:480px" attrs="{'invisible': [('parent_id','!=',False)]}">
                                 <group>
                                     <group>
                                         <field name="shipping_details_id"/>
@@ -159,7 +212,7 @@
                                     </group>
                                 </group>
                             </page>
-                            <page string="Response" style="min-height:480px">
+                            <page string="Response" style="min-height:480px" attrs="{'invisible': [('parent_id','!=',False)]}">
                                 <field name="response"/>
                             </page>
                             <page string="Selling Status" style="min-height:480px" attrs="{'invisible': [('state','=','Draft')]}">
@@ -209,11 +262,34 @@
             </field>
         </record>
         
+        <record id="view_ebay_item_filter" model="ir.ui.view">
+            <field name="name">ebay item select</field>
+            <field name="model">ebay.item</field>
+            <field name="arch" type="xml">
+                <search string="Search Item">
+                    <filter icon="terp-document-new" string="Draft" domain="[('state','in',('Draft',))]"/>
+                    <filter icon="terp-check" string="Active" domain="[('state','in',('Active',))]"/>
+                    <filter icon="terp-dolar_ok!" string="Completed" domain="[('state','in',('Completed','Ended'))]"/>
+                    <separator/>
+                    <field name="ebay_user_id"/>
+                    <field name="listing_type"/>
+                    <field name="state"/>
+                    <group expand="0" string="Group By...">
+                        <filter string="User" icon="terp-personal" domain="[]" context="{'group_by':'ebay_user_id'}"/>
+                        <filter string="Format" icon="terp-stock_effects-object-colorize" domain="[]" context="{'group_by':'listing_type'}"/>
+                        <filter string="Variation" icon="terp-stock_effects-object-colorize" domain="[]" context="{'group_by':'variation'}"/>
+                        <filter string="Status" icon="terp-stock_effects-object-colorize" domain="[]" context="{'group_by':'state'}"/>
+                    </group>
+               </search>
+            </field>
+        </record>
+        
         <record id="action_ebay_item_tree" model="ir.actions.act_window">
             <field name="name">Inventory</field>
             <field name="res_model">ebay.item</field>
             <field name="view_type">form</field>
             <field name="view_mode">tree,form</field>
+            <field name="domain">[('parent_id','=',False)]</field>
         </record>
         <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="menu_ebay_listing_activity"/>
         

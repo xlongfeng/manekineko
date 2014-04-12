@@ -13,8 +13,8 @@
 		    <div states="option">
 			<group>
 			    <field name="ebay_user_id"/>
-			    <field name="defer"/>
-			    <field name="description_included"/>
+			    <field name="autocreate"/>
+			    <field name="defer" attrs="{'invisible': [('autocreate','=',False)]}"/>
 			</group>
 		    </div>
 		    <footer states="option">
