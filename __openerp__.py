@@ -25,7 +25,7 @@
     'version': '1.0',
     'author': 'xlongfeng',
     'category': 'Uncategorized',
-    'depends': ['base', 'base_import', 'stock', 'web_ckeditor'],
+    'depends': ['base', 'base_import', 'sale_stock', 'web_ckeditor'],
     'demo': [],
     'description': """
 This is a module for managing ebay listings, orders and messages in OpenERP.
@@ -33,7 +33,6 @@ This is a module for managing ebay listings, orders and messages in OpenERP.
     'data': [
         'ebay_view.xml',
         'ebay_item_view.xml',
-        'ebay_sale_view.xml',
         'res_partner_view.xml',
         'wizard/authorize_view.xml',
         'wizard/get_order_view.xml',
@@ -41,6 +40,8 @@ This is a module for managing ebay listings, orders and messages in OpenERP.
         'wizard/item_revise_view.xml',
         'wizard/item_synchronize_view.xml',
         'wizard/photobucket_authorize_view.xml',
+        'wizard/sale_order_list_print_view.xml',
+        'ebay_sale_view.xml',
         'photobucket_view.xml',
     ],
     'test': [

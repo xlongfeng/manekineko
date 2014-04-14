@@ -24,6 +24,7 @@ import item_end
 import item_revise
 import item_synchronize
 import photobucket_authorize
+import sale_order_list_print
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
 

@@ -8,7 +8,7 @@
             <field name="model">ebay.sale.order</field>
             <field name="type">tree</field>
             <field name="arch" type="xml">
-                <tree string="ebay sale order tree" fonts="bold:buyer_checkout_message!=False" colors="grey:state=='cancel';blue:state in ('draft');red:state in ('pending');purple:state in ('progress')">
+                <tree string="ebay sale order tree" fonts="bold:buyer_checkout_message!=False" colors="grey:state=='cancel';blue:state in ('draft');red:state in ('pending');purple:state in ('confirmed', 'assigned')">
                     <field name="name"/>
                     <field name="buyer_user_id"/>
                     <field name="buyer_checkout_message" invisible="1"/>
@@ -30,8 +30,10 @@
                     <header>
                         <button name="action_confirm" class="oe_highlight" states="draft,pending" string="Confirm" type="object"/>
                         <button name="action_pending" states="draft" string="Pending" type="object"/>
-                        <button name="action_send" class="oe_highlight" confirm="Are you sure want to delivery this order?" states="progress" string="Delivery" type="object"/>
-                        <button name="action_done" class="oe_highlight" confirm="Are you sure want to complete this order?"  states="sent" string="Done" type="object"/>
+                        <button name="action_assign" class="oe_highlight" states="confirmed" string="Check Availability" type="object"/>
+                        <button name="action_send" class="oe_highlight" confirm="Are you sure want to delivery this order?" states="assigned" string="Delivery" type="object"/>
+                        <button name="%(sale_order_list_print)d" class="oe_highlight" states="assigned" string="Print Delivery Slip" type="action"/>
+                        <button name="action_done" confirm="Are you sure want to complete this order?"  states="sent" string="Done" type="object"/>
                         <button name="action_cancel" states="draft" confirm="Are you sure want to cancel this order?" string="Cancel" type="object"/>
                         <field name="state" widget="statusbar"/>
                     </header>
@@ -106,7 +108,7 @@
                                     </group>
                                 </group>
                             </form>
-                            <tree string="Order Transactions">
+                            <tree string="Order Transactions" colors="red:state=='exception'">
                                 <field name="sd_record_number"/>
                                 <field name="name"/>
                                 <field name="quantity_purchased"/>
@@ -127,8 +129,9 @@
             <field name="arch" type="xml">
                 <search string="Search Sales Order">
                     <filter icon="terp-document-new" string="Draft" name="draft" domain="[('state','in',('draft',))]" help="Sales Order that haven't yet been confirmed"/>
-                    <filter icon="terp-check" string="In Progress" name="sales" domain="[('state','in',('progress',))]" help="Sales Order ready to be sent"/>
-                    <filter icon="terp-dolar_ok!" string="Sent" domain="[('state','in',('sent',))]" help="Sales Order has to be sent"/>
+                    <filter icon="terp-check" string="Waiting Availability" domain="[('state','in',('confirmed',))]" help="Sales Order has to be check availability"/>
+                    <filter icon="terp-dolar_ok!" string="Ready to Deliver" domain="[('state','in',('assigned',))]" help="Sales Order ready to be sent"/>
+                    <filter icon="terp-dolar_ok!" string="Delivered" domain="[('state','in',('sent',))]" help="Sales Order has to be sent"/>
                     <filter icon="terp-dolar_ok!" string="Done" domain="[('state','=','done')]" help="Sales Order done"/>
                     <separator/>
                     <field name="partner_id" filter_domain="[('partner_id', 'child_of', self)]"/>

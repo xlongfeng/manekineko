@@ -21,16 +21,12 @@
                     <sheet>
                         <field name="view_item_url" widget="url" attrs="{'invisible': [('item_id','=',False)]}"/>
                         <field name="parent_id" invisible="1"/>
-                        <group>
+                        <group attrs="{'invisible': [('parent_id','!=',False)]}">
                             <group>
-                                <field name="product_id"/>
-                                <field name="product_uom_qty"/>
-                                <field name="product_uom"/>
-                            </group>
-                            <group attrs="{'invisible': [('parent_id','!=',False)]}">
                                 <field name="site" attrs="{'readonly': [('state','!=','Draft')]}"/>
+                            </group>
+                            <group>
                                 <field name="ebay_user_id" attrs="{'readonly': [('state','!=','Draft')]}"/>
-                                <field name="item_id"/>
                             </group>
                         </group>
                         <group string="Title and Category">
@@ -67,8 +63,6 @@
                             <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
                             <field name="child_ids" attrs="{'invisible': [('variation','=',False)]}">
                                 <tree>
-                                    <field name="product_id"/>
-                                    <field name="product_uom_qty"/>
                                     <field name="variation_specifics_set" string="Value"/>
                                     <field name="start_price"/>
                                     <field name="quantity"/>
@@ -80,9 +74,6 @@
                                     </header>
                                     <group>
                                         <field name="name" invisible="1"/>
-                                        <field name="product_id"/>
-                                        <field name="product_uom_qty"/>
-                                        <field name="product_uom"/>
                                         <field name="variation_specifics_set" string="Value" attrs="{'readonly': ['|',('variation_deleted','=',True),('state','=','Active')]}" on_change="on_change_variation_specifics_set(variation_specifics_set)"/>
                                         <field name="start_price" attrs="{'readonly': [('variation_deleted','=',True)]}"/>
                                         <field name="quantity" attrs="{'readonly': [('variation_deleted','=',True)]}"/>
@@ -201,6 +192,14 @@
                                 </group>
                                 <field name="description" widget="ckeditor"/>
                             </page>
+                            <page string="Product" style="min-height:480px">
+                                <field name="product_ids">
+                                    <tree>
+                                        <field name="product_id"/>
+                                        <field name="uos_coeff"/>
+                                    </tree>
+                                </field>
+                            </page>
                             <page string="Shipping and Policies" style="min-height:480px" attrs="{'invisible': [('parent_id','!=',False)]}">
                                 <group>
                                     <group>
@@ -212,25 +211,26 @@
                                     </group>
                                 </group>
                             </page>
-                            <page string="Response" style="min-height:480px" attrs="{'invisible': [('parent_id','!=',False)]}">
-                                <field name="response"/>
-                            </page>
                             <page string="Selling Status" style="min-height:480px" attrs="{'invisible': [('state','=','Draft')]}">
                                 <group>
                                     <group>
+                                        <field name="item_id"/>
                                         <field name="revise_date"/>
                                         <field name="start_time"/>
+                                        <field name="hit_count"/>
                                         <field name="quantity_sold" attrs="{'invisible': [('listing_type','!=','Chinese')]}"/>
                                         <field name="bid_count" attrs="{'invisible': [('listing_type','=','Chinese')]}"/>
-                                        <field name="hit_count"/>
                                     </group>
                                     <group>
+                                        <field name="time_left"/>
                                         <field name="update_date"/>
                                         <field name="end_time"/>
-                                        <field name="time_left"/>
                                         <field name="watch_count"/>
                                     </group>
                                 </group>
+                            </page>
+                            <page string="Response" style="min-height:480px" attrs="{'invisible': [('parent_id','!=',False)]}">
+                                <field name="response"/>
                             </page>
                         </notebook>
                         <group>
@@ -248,7 +248,6 @@
             <field name="arch" type="xml">
                 <tree string="ebay item tree">
                     <field name="name"/>
-                    <field name="product_id"/>
                     <field name="variation"/>
                     <field name="listing_type"/>
                     <field name="quantity"/>
@@ -292,6 +291,20 @@
             <field name="domain">[('parent_id','=',False)]</field>
         </record>
         <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="menu_ebay_listing_activity"/>
+        
+        <record model="ir.ui.view" id="ebay_product_form_view">
+            <field name="name">ebay product form</field>
+            <field name="model">ebay.product</field>
+            <field name="type">form</field>
+            <field name="arch" type="xml">
+                <form string="ebay product form" version="7.0">
+                    <group>
+                        <field name="product_id"/>
+                        <field name="uos_coeff"/>
+                    </group>
+                </form>
+            </field>
+        </record>
         
         <record model="ir.ui.view" id="ebay_details_form_view">
             <field name="name">ebay details form</field>

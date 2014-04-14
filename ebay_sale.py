@@ -28,6 +28,13 @@ from openerp.tools.translate import _
 import pytz
 from openerp import SUPERUSER_ID
 
+class sale_order(osv.osv):
+    _inherit = "sale.order"
+    
+    _columns = {
+        'ebay_sale_order_id': fields.many2one('ebay.sale.order', 'eBay User'),
+    }
+
 class ebay_sale_order(osv.osv):
     _name = "ebay.sale.order"
     _description = "eBay order"
@@ -114,13 +121,15 @@ class ebay_sale_order(osv.osv):
         ),
         'state': fields.selection([
             ('draft', 'Draft'),
-            ('progress', 'In Progress'),
-            ('sent', 'Sent'),
+            ('confirmed', 'Waiting Availability'),
+            ('assigned', 'Ready to Deliver'),
+            ('sent', 'Delivered'),
             ('cancel', 'Cancelled'),
             ('pending', 'Pending'),
             ('done', 'Done'),
             ], 'Status', readonly=True, track_visibility='onchange',
             help="Gives the status of the quotation or sales order. \nThe 'Waiting Schedule' status is set when the invoice is confirmed but waiting for the scheduler to run on the order date.", select=True),
+        'sale_order_ids': fields.one2many('sale.order', 'ebay_sale_order_id', 'Sale Orders', readonly=True),
     }
     
     _defaults = {
@@ -146,82 +155,97 @@ class ebay_sale_order(osv.osv):
         if vals.get('name','/')=='/':
             sd_record_number = vals.get('sd_record_number',0) 
             if sd_record_number:
-                vals['name'] = 'eso/%s' % sd_record_number
+                vals['name'] = 'EOS/%s' % sd_record_number
         return super(ebay_sale_order, self).create(cr, uid, vals, context=context)
     
-    def _prepare_order_picking(self, cr, uid, order, context=None):
-        pick_name = self.pool.get('ir.sequence').get(cr, uid, 'stock.picking.out')
+    def _prepare_order(self, cr, uid, order, context=None):
+        pricelist_id = self.pool.get('product.pricelist').search(cr, uid, [], context=context)[0]
         return {
-            'name': pick_name,
-            'origin': order.name,
-            'date': order.created_time,
-            'type': 'out',
-            'state': 'draft',
-            'move_type': 'one',
+            'client_order_ref': order.name,
+            'date_order': order.created_time,
             'partner_id': order.partner_id.id,
+            'partner_invoice_id': order.partner_id.id,
+            'partner_shipping_id': order.partner_id.id,
+            'pricelist_id': pricelist_id,
             'note': order.buyer_checkout_message,
-            'invoice_state': 'none',
+            'ebay_sale_order_id': order.id,
         }
     
-    def _prepare_order_line_move(self, cr, uid, order, line, picking_id, ebay_item, context=None):
-        warehouse_id = self.pool.get('stock.warehouse').search(cr, uid, [], context=context)[0]
-        warehouse = self.pool.get('stock.warehouse').browse(cr, uid, warehouse_id, context=context)
-        property_out = order.partner_id.property_stock_customer
+    def _prepare_order_line(self, cr, uid, order, line, sale_order_id, product, context=None):
         return {
+            'order_id': sale_order_id,
             'name': line.name,
-            'picking_id': picking_id,
-            'product_id': ebay_item.product_id.id,
-            'product_qty': ebay_item.product_uom_qty * line.quantity_purchased,
-            'product_uom': ebay_item.product_uom.id,
-            'product_uos_qty': ebay_item.product_uom_qty * line.quantity_purchased,
-            'product_uos': ebay_item.product_uom.id,
-            'location_id': warehouse.lot_stock_id.id,
-            'location_dest_id': property_out.id,
-            'partner_id': order.partner_id.id,
-            'tracking_id': False,
-            'state': 'draft',
-            #'state': 'waiting',
-            'price_unit': line.transaction_price
+            'sequence': line.sd_record_number,
+            'product_id': product.product_id.id,
+            'price_unit': line.transaction_price,
+            'type': 'make_to_order',
+            'product_uom_qty': product.uos_coeff * line.quantity_purchased,
+            'product_uos_qty': product.uos_coeff * line.quantity_purchased,
         }
     
-    def _create_pickings(self, cr, uid, order, context=None):
+    def _create_sale_order(self, cr, uid, order, context=None):
         if (order.state == 'draft' or order.state == 'pending') \
             and order.cs_ebay_payment_status == 'NoPaymentFailure' and order.cs_status == 'Complete':
-            move_obj = self.pool.get('stock.move')
-            picking_obj = self.pool.get('stock.picking')
+            sale_order_obj = self.pool.get('sale.order')
+            sale_order_line_obj = self.pool.get('sale.order.line')
             
             # check all line avaiable
             for line in order.transactions:
                 if line.ebay_item_variation_id:
                     ebay_item_id = line.ebay_item_variation_id
-                    product_id = ebay_item_id.product_id
+                    product_ids = ebay_item_id.product_ids
                 elif line.ebay_item_id:
                     ebay_item_id = line.ebay_item_id
-                    product_id = ebay_item_id.product_id
+                    product_ids = ebay_item_id.product_ids
                 else:
-                    return
+                    return line.write(dict(state='exception'))
                 
-                if not ebay_item_id.exists() or not product_id.exists():
-                    return
+                if not ebay_item_id.exists() or not product_ids:
+                    return line.write(dict(state='exception'))
+                
+                for product in product_ids:
+                    if not product.product_id.exists():
+                        return line.write(dict(state='exception'))
+                    
              
             for line in order.transactions:
                 if line.ebay_item_variation_id:
                     ebay_item_id = line.ebay_item_variation_id
-                    product_id = ebay_item_id.product_id
+                    product_ids = ebay_item_id.product_ids
                 elif line.ebay_item_id:
                     ebay_item_id = line.ebay_item_id
-                    product_id = ebay_item_id.product_id
-                else:
-                    ebay_item_id = False
-                    product_id = False
-                if ebay_item_id and ebay_item_id.exists() and product_id and product_id.exists():
-                    picking_id = picking_obj.create(cr, uid, self._prepare_order_picking(cr, uid, order, context=context))
-                    move_id = move_obj.create(cr, uid, self._prepare_order_line_move(cr, uid, order, line, picking_id, ebay_item_id, context=context))
-                    order.write({'state': 'progress'})
+                    product_ids = ebay_item_id.product_ids
+                
+                sale_order_id = sale_order_obj.create(cr, uid, self._prepare_order(cr, uid, order, context=context))
+                for product in ebay_item_id.product_ids:
+                    sale_order_line_obj.create(cr, uid, self._prepare_order_line(cr, uid, order, line, sale_order_id, product, context=context))
+                line.write(dict(state='done'))
+                sale_order_obj.action_button_confirm(cr, uid, [sale_order_id], context=context)
+            order.write({'state': 'confirmed'})
     
     def action_confirm(self, cr, uid, ids, context=None):
         for order in self.browse(cr, uid, ids, context=context):
-            self._create_pickings(cr, uid, order, context=context)
+            self._create_sale_order(cr, uid, order, context=context)
+        return True
+    
+    def action_assign(self, cr, uid, ids, context=None):
+        stock_picking_obj = self.pool.get('stock.picking')
+        for order in self.browse(cr, uid, ids, context=context):
+            picking_ids = []
+            for sale_order in order.sale_order_ids:
+                if sale_order.state in ('progress', 'manual'):
+                    picking_ids.extend([x.id for x in sale_order.picking_ids if x.state in ('confirmed', 'assigned')])
+            
+            if len(picking_ids) > 0:
+                stock_picking_obj.action_assign(cr, uid, picking_ids)
+                
+            move_line_no_assigned = []
+            picking_ids = [x.id for x in sale_order.picking_ids]
+            for picking in stock_picking_obj.browse(cr, uid, picking_ids, context=context):
+                move_line_no_assigned.extend([x.id for x in picking.move_lines if x.state not in ('assigned', 'done')])
+            
+            if len(move_line_no_assigned) == 0:
+                order.write(dict(state='assigned'))
         return True
         
     def action_pending(self, cr, uid, ids, context=None):
@@ -233,7 +257,8 @@ class ebay_sale_order(osv.osv):
     def action_send(self, cr, uid, ids, context=None):
         send_ids = list()
         for order in self.browse(cr, uid, ids, context=context):
-            if order.state == 'progress':
+            if order.state == 'assigned':
+                # complete sale
                 send_ids.append(order.id)
         return self.write(cr, uid, send_ids, {'state': 'sent'}, context)
         
@@ -280,6 +305,7 @@ class ebay_sale_order_transaction(osv.osv):
         'ebay_item_id': fields.many2one('ebay.item', 'Item', domain=[('state', '=', 'Active')], change_default=True),
         'ebay_item_variation_id': fields.many2one('ebay.item', 'Variation', domain="[('parent_id', '=', ebay_item_id)]", change_default=True),
         'variation': fields.function(_get_variation, type='boolean', method="True", string='Variation'),
+        'broken': fields.boolean('Broken'),
         'order_partner_id': fields.related('order_id', 'partner_id', type='many2one', relation='res.partner', store=True, string='Customer'),
         'ebay_user_id':fields.related('order_id', 'ebay_user_id', type='many2one', relation='ebay.user', store=True, string='eBay User'),
         'state': fields.selection([('draft', 'Draft'),('confirmed', 'Confirmed'),('cancel', 'Cancelled'),('exception', 'Exception'),('done', 'Done')], 'Status', required=True, readonly=True,

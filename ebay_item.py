@@ -400,6 +400,20 @@ class ebay_shippingdetails(osv.osv):
     
 ebay_shippingdetails()
 
+class ebay_product(osv.osv):
+    _name = "ebay.product"
+    _description = "eBay product"
+    
+    _columns = {
+        'product_id': fields.many2one('product.product', 'Product', required=True, ondelete='no action'),
+        'uos_coeff': fields.float('Unit of Sale Coeff', digits_compute= dp.get_precision('Product UoS'), required=True),
+        'ebay_item_id': fields.many2one('ebay.item', 'eBay Item', ondelete='cascade'),
+    }
+    
+    _defaults = {
+        'uos_coeff': 1.0
+    }
+
 def split_str(s, sep):
     if not s:
         return list()
@@ -520,9 +534,7 @@ Secondary value1 | Secondary value2 ...
         'child_ids': fields.one2many('ebay.item', 'parent_id', 'Child Item'),
         'variation_deleted': fields.boolean('Delete'),
         # SKU
-        'product_id': fields.many2one('product.product', 'Product', ondelete='set null'),
-        'product_uom_qty': fields.float('Product Quantity', digits_compute= dp.get_precision('Product UoS'), required=True),
-        'product_uom': fields.many2one('product.uom', 'Unit of Measure ', required=True),
+        'product_ids': fields.one2many('ebay.product', 'ebay_item_id', 'Product'),
         # Item Status ------------
         'bid_count': fields.integer('Bit Count', readonly=True),
         'end_time': fields.datetime('End Time', readonly=True),
@@ -554,14 +566,6 @@ Secondary value1 | Secondary value2 ...
         'ebay_user_id': fields.many2one('ebay.user', 'Account', domain=[('ownership','=',True)], ondelete='set null'),
     }
     
-    def _get_uom_id(self, cr, uid, *args):
-        try:
-            proxy = self.pool.get('ir.model.data')
-            result = proxy.get_object_reference(cr, uid, 'product', 'product_uom_unit')
-            return result[1]
-        except Exception, ex:
-            return False
-    
     _defaults = {
         'buy_it_now_price': 19.99,
         'condition_id': 1000,
@@ -579,8 +583,6 @@ Secondary value1 | Secondary value2 ...
         'variation_invalid': True,
         'variation_deleted': False,
         'start_price': 9.99,
-        'product_uom_qty': 1,
-        'product_uom': _get_uom_id,
         'state': 'Draft',
         'site': 'US',
         'uuid': lambda self, cr, uid, context: uuid.uuid1().hex,
