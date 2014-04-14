@@ -9,13 +9,23 @@
             <field name="arch" type="xml">
                 <form string="ebay sale order list print" version="7.0">
 		    <separator string="Print Delivery Slip"/>
-		    <group>
+		    <group states="option">
 			<field name="count"/>
+			<field name="carrier"/>
+			<field name="state" invisible="1"/>
 		    </group>
-		    <footer>
-			<button name="action_print" string="OK" type="object" class="oe_highlight"/>
+		    <footer states="option">
+			<button name="action_print" string="Print" type="object" class="oe_highlight"/>
 			or
 			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		    <div states="download">
+			<p>Here is the delivery slip file: <field name="data" readonly="1" filename="name"/></p>
+			<p>This file was generated using the universal <strong>Unicode/UTF-8</strong> file encoding,<br/>
+			   please be sure to view and edit using the same encoding.</p> 
+		    </div>
+		    <footer states="download">
+			<button special="cancel" string="Close" type="object"/>
 		    </footer>
 		</form>
 	    </field>
