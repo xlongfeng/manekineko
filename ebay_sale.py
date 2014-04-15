@@ -269,6 +269,23 @@ class ebay_sale_order(osv.osv):
                 done_ids.append(order.id)
         return self.write(cr, uid, done_ids, {'state': 'done'}, context)
     
+    def action_open_message(self, cr, uid, ids, context=None):
+        mod_obj = self.pool.get('ir.model.data')
+        
+        res = mod_obj.get_object_reference(cr, uid, 'ebay', 'view_ebay_sale_order_message_form')
+        res_id = res and res[1] or False
+
+        return {
+            'name': _('Sale Orders Message'),
+            'view_type': 'form',
+            'view_mode': 'form',
+            'view_id': [res_id],
+            'res_model': 'ebay.sale.order',
+            'type': 'ir.actions.act_window',
+            'target': 'new',
+            'res_id': ids and ids[0] or False,
+        }
+    
 ebay_sale_order()
 
 class ebay_sale_order_transaction(osv.osv):
