@@ -9,10 +9,14 @@
             <field name="arch" type="xml">
                 <form string="ebay sale order list print" version="7.0">
 		    <separator string="Print Delivery Slip"/>
+		    <field name="state" invisible="1"/>
 		    <group states="option">
 			<field name="count"/>
+			<field name="automerge"/>
 			<field name="carrier"/>
-			<field name="state" invisible="1"/>
+		    </group>
+		    <group states="download">
+			<field name="automerge_count"/>
 		    </group>
 		    <footer states="option">
 			<button name="action_print" string="Print" type="object" class="oe_highlight"/>
