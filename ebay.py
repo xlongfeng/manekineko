@@ -285,6 +285,9 @@ class ebay_user(osv.osv):
         'shipping_service': fields.selection(
             _get_shipping_service_type, 'Shipping service'
         ),
+        'after_service_7_template': fields.text('7 days template'),
+        'after_service_15_template': fields.text('15 days template'),
+        'after_service_25_template': fields.text('25 days template'),
         # User Preferences
         'exclude_ship_to_location': fields.text('Exclude Ship To Location', readonly=True),
     }
@@ -298,6 +301,47 @@ class ebay_user(osv.osv):
         'country': 'CN',
         'location': 'ShenZhen',
         'shipping_service': 'sgam',
+        'after_service_7_template': '''
+Hi friend.
+  Your item has been shipped on {{ shipped_time }} by air mail,
+  and it may take about 10~20 days to arrive,
+  sometimes it may be delayed by unexpected reason like holiday,
+  custom`s process, weather condition etc.
+  It may be delayed up to 35 days to arrive.
+  We will be very appreciated for your patience.
+  If you have any question, feel free to contact us asap.
+  Thanks for your purchase.
+  
+  Yours Sincerely
+''',
+        'after_service_15_template': '''
+Hi friend.
+  Your item has been shipped on {{ shipped_time }} by air mail.
+  {{ elapse }} days have passed since your item was shipped,
+  When you receive it, we sincerely hope that you will like it 
+  and appreciate our customer services.
+  If there is anything you feel unsatisfied with, please do tell us. 
+  This will help us know what we should do to help you as well as how we should improve.
+  If you are satisfied, we sincerely hope that you can leave us a positive comment, 
+  which is of vital importance to the growth of our small company.
+  PLEASE DO NOT leaves us negative feedback. If you are not satisfied in any regard,
+  please tell us.
+  Thanks once more for your purchase.
+  
+  Yours Sincerely
+''',
+        'after_service_25_template': '''
+Hi friend.
+  Your item has been shipped on {{ shipped_time }} by air mail.
+  If you haven't received your item and this situation lasts to the 35th day,
+  please do contact us. WE WILL DO OUR BEST TO SOLVE YOUR PROBLEM.
+  We do not want to give you a bad buying experience even when the shipping is out of our control.
+  But if you receive it, we sincerely hope you can leave us a positive comment if you like it and
+  appreciate our customer services.
+  Thanks once more for your purchase.
+
+  Yours Sincerely
+'''
     }
     
     _order = 'monthly_sales desc'

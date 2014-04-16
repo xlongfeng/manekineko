@@ -129,6 +129,12 @@ class ebay_sale_order(osv.osv):
             ('done', 'Done'),
             ], 'Status', readonly=True, track_visibility='onchange',
             help="Gives the status of the quotation or sales order. \nThe 'Waiting Schedule' status is set when the invoice is confirmed but waiting for the scheduler to run on the order date.", select=True),
+        'after_service_duration': fields.selection([
+            ('0', '0 day'),
+            ('7', '7 days'),
+            ('15', '15 days'),
+            ('25', '25 days'),
+        ], 'After Service Duration', readonly=True),
         'sale_order_ids': fields.one2many('sale.order', 'ebay_sale_order_id', 'Sale Orders', readonly=True),
     }
     
@@ -136,6 +142,7 @@ class ebay_sale_order(osv.osv):
         'name': lambda obj, cr, uid, context: '/',
         'created_time': fields.datetime.now(),
         'state': 'draft',
+        'after_service_duration': 0,
     }
     
     _order = 'sd_record_number desc'

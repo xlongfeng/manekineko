@@ -153,8 +153,9 @@
 		    </p>
 		    <group>
                         <field name="after_service_message"/>
-			<field name="number_of_days"/>
+                        <field name="number_of_days"/>
                         <field name="message_status" attrs="{'invisible': [('after_service_message','=',True)]}"/>
+                        <field name="ignoe_order_before" attrs="{'invisible': [('after_service_message','=',False)]}"/>
 			<field name="sandbox_user_included"/>
 		    </group>
 		    <footer>

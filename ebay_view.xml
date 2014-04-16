@@ -73,6 +73,11 @@
                             <field name="ru_name"/>
                             <field name="hard_expiration_time"/>
                         </group>
+                        <group attrs="{'invisible': [('ownership','=',False)]}">
+                            <field name="after_service_7_template"/>
+                            <field name="after_service_15_template"/>
+                            <field name="after_service_25_template"/>
+                        </group>
                     </sheet>
                 </form>
             </field>

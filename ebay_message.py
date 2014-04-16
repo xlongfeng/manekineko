@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 from jinja2 import Template
 
 from openerp.tools import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT, DATETIME_FORMATS_MAP, float_compare
+from openerp import pooler, tools
 from dateutil.relativedelta import relativedelta
 from openerp.osv import fields, osv
 from openerp import netsvc
@@ -55,12 +56,14 @@ class ebay_message_synchronize(osv.TransientModel):
             ('Answered', 'Answered'),
             ('CustomCode', 'CustomCode')], 'Message Status'),
         'after_service_message': fields.boolean('After Service Message'),
+        'ignoe_order_before': fields.datetime('Ignore Orders Before'),
         'sandbox_user_included': fields.boolean ('Sandbox User Included'),
     }
     
     _defaults = {
         'number_of_days': '2',
         'after_service_message': False,
+        'ignoe_order_before': (datetime.now() - timedelta(35)).strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT),
         'sandbox_user_included': False,
     }
     
@@ -108,6 +111,23 @@ class ebay_message_synchronize(osv.TransientModel):
                                 ebay_sale_order.refresh()
                         pass
                     pass
+            # search matched order
+            domain = [('state', '=', 'sent'), ('shipped_time', '>', this.ignoe_order_before)]
+            ids = ebay_sale_order_obj.search(cr, uid, domain, context=context)
+            if ids:
+                for ebay_sale_order in ebay_sale_order_obj.browse(cr, uid, ids, context=context):
+                    print ebay_sale_order.name, ebay_sale_order.sd_record_number, ebay_sale_order.state
+                    '''
+                    delta = now - ebay_sale_order.shipped_time
+                    if delta > 7 and ebay_sale_orderafter_service_duration == '0':
+                        pass
+                    elif delta > 15 and ebay_sale_orderafter_service_duration == '7':
+                        pass
+                    elif delta > 25 and ebay_sale_orderafter_service_duration == '15':
+                        pass
+                    else:
+                        pass
+                    '''
         else:
             end_creation_time = datetime.now()
             start_creation_time = end_creation_time - timedelta(int(this.number_of_days))
