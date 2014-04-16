@@ -26,6 +26,8 @@ import base64
 import urllib2
 from datetime import datetime, timedelta
 
+from jinja2 import Template
+
 from openerp.tools import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT, DATETIME_FORMATS_MAP, float_compare
 from dateutil.relativedelta import relativedelta
 from openerp.osv import fields, osv
@@ -52,12 +54,13 @@ class ebay_message_synchronize(osv.TransientModel):
             ('Unanswered', 'Unanswered'),
             ('Answered', 'Answered'),
             ('CustomCode', 'CustomCode')], 'Message Status'),
+        'after_service_message': fields.boolean('After Service Message'),
         'sandbox_user_included': fields.boolean ('Sandbox User Included'),
     }
     
     _defaults = {
         'number_of_days': '2',
-        'message_status': 'Unanswered',
+        'after_service_message': False,
         'sandbox_user_included': False,
     }
     
@@ -71,79 +74,119 @@ class ebay_message_synchronize(osv.TransientModel):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         ebay_message_obj =  self.pool.get('ebay.message')
         ebay_message_media_obj =  self.pool.get('ebay.message.media')
-        
-        end_creation_time = datetime.now()
-        start_creation_time = end_creation_time - timedelta(int(this.number_of_days))
-        
-        for user in ebay_ebay_obj.get_auth_user(cr, uid, this.sandbox_user_included, context=context):
-            entries_per_page = 100
-            page_number = 1
-            has_more_items = True
-            while has_more_items:
-                call_data=dict()
-                call_data['EndCreationTime'] = end_creation_time
-                call_data['MailMessageType'] = 'All'
-                if this.message_status:
-                    call_data['MessageStatus'] = this.message_status
-                call_data['StartCreationTime'] = start_creation_time
-                call_data['Pagination'] = {
-                    'EntriesPerPage': entries_per_page,
-                    'PageNumber': page_number,
-                }
-                error_msg = 'Get the messages for the specified user %s' % user.name
-                reply = ebay_ebay_obj.call(cr, uid, user, 'GetMemberMessages', call_data, error_msg, context=context).response.reply
-                has_more_items = reply.HasMoreItems == 'true'
-                messages = reply.MemberMessage.MemberMessageExchange
-                if type(messages) != list:
-                    messages = [messages]
-                for message in messages:
-                    # find existing message
-                    domain = [('message_id', '=', message.Question.MessageID)]
-                    ids = ebay_message_obj.search(cr, uid, domain, context=context)
-                    if ids:
-                        ebay_message = ebay_message_obj.browse(cr, uid, ids[0], context=context)
-                        last_modified_date = message.LastModifiedDate
-                        if ebay_message.last_modified_date != ebay_ebay_obj.to_default_format(cr, uid, last_modified_date):
-                            # last modified
-                            pass
-                    else:
-                        # create new message
-                        vals = dict(
-                            name=message.Question.Subject,
-                            body=message.Question.Body,
-                            message_type=message.Question.MessageType,
-                            question_type=message.Question.QuestionType,
-                            recipient_or_sender_id=message.Question.SenderID,
-                            sender_email=message.Question.SenderEmail,
-                            message_id=message.Question.MessageID,
-                            last_modified_date=message.LastModifiedDate,
-                            state=message.MessageStatus,
-                            type='in',
-                        )
-                        if message.has_key('Item'):
-                            vals['item_id'] = message.Item.ItemID
-                            vals['title'] = message.Item.Title
-                            vals['end_time'] = message.Item.ListingDetails.EndTime
-                            vals['start_time'] = message.Item.ListingDetails.StartTime
-                            vals['current_price'] = message.Item.SellingStatus.CurrentPrice.value
-                        ebay_message_id = ebay_message_obj.create(cr, uid, vals, context=context)
-                        
-                        message_medias = []
-                        if message.has_key('MessageMedia'):
-                            message_medias.extend(message.MessageMedia if type(message.MessageMedia) == list else [message.MessageMedia])
-                        if message.Question.has_key('MessageMedia'):
-                            message_medias.extend(message.Question.MessageMedia if type(message.Question.MessageMedia) == list else [message.Question.MessageMedia])
-                        if message_medias:
-                            for media in message_medias:
+        ebay_sale_order_obj = self.pool.get('ebay.sale.order')
+            
+        if this.after_service_message:
+            now_time = datetime.now()
+            for user in ebay_ebay_obj.get_auth_user(cr, uid, this.sandbox_user_included, context=context):
+                entries_per_page = 100
+                page_number = 1
+                total_number_of_entries = entries_per_page
+                while total_number_of_entries == entries_per_page:
+                    call_data=dict()
+                    call_data['FeedbackType'] = 'FeedbackReceivedAsSeller'
+                    call_data['Pagination'] = {
+                        'EntriesPerPage': entries_per_page,
+                        'PageNumber': page_number,
+                    }
+                    call_data['DetailLevel'] = 'ReturnAll'
+                    error_msg = 'Get the feedback for the specified user %s' % user.name
+                    reply = ebay_ebay_obj.call(cr, uid, user, 'GetFeedback', call_data, error_msg, context=context).response.reply
+                    total_number_of_entries = int(reply.PaginationResult.TotalNumberOfEntries)
+                    feedback_details = reply.FeedbackDetailArray.FeedbackDetail
+                    if type(feedback_details) != list:
+                        feedback_details = [feedback_details]
+                    for feedback_detail in feedback_details:
+                        if (now_time-feedback_detail.CommentTime).days > int(this.number_of_days):
+                            total_number_of_entries = 0
+                        domain = [('order_id','=',feedback_detail.OrderLineItemID)]
+                        ids = ebay_sale_order_obj.search(cr, uid, domain, context=context)
+                        if ids:
+                            ebay_sale_order = ebay_sale_order_obj.browse(cr, uid, ids, context=context)[0]
+                            if ebay_sale_order.state != 'done':
+                                ebay_sale_order.write(dict(state='done'))
+                                ebay_sale_order.refresh()
+                        pass
+                    pass
+        else:
+            end_creation_time = datetime.now()
+            start_creation_time = end_creation_time - timedelta(int(this.number_of_days))
+            
+            for user in ebay_ebay_obj.get_auth_user(cr, uid, this.sandbox_user_included, context=context):
+                entries_per_page = 100
+                page_number = 1
+                has_more_items = True
+                while has_more_items:
+                    call_data=dict()
+                    call_data['EndCreationTime'] = end_creation_time
+                    call_data['MailMessageType'] = 'All'
+                    if this.message_status:
+                        call_data['MessageStatus'] = this.message_status
+                    call_data['StartCreationTime'] = start_creation_time
+                    call_data['Pagination'] = {
+                        'EntriesPerPage': entries_per_page,
+                        'PageNumber': page_number,
+                    }
+                    error_msg = 'Get the messages for the specified user %s' % user.name
+                    reply = ebay_ebay_obj.call(cr, uid, user, 'GetMemberMessages', call_data, error_msg, context=context).response.reply
+                    has_more_items = reply.HasMoreItems == 'true'
+                    messages = reply.MemberMessage.MemberMessageExchange
+                    if type(messages) != list:
+                        messages = [messages]
+                    for message in messages:
+                        # find existing message
+                        domain = [('message_id', '=', message.Question.MessageID), ('ebay_user_id', '=', user.id)]
+                        ids = ebay_message_obj.search(cr, uid, domain, context=context)
+                        if ids:
+                            ebay_message = ebay_message_obj.browse(cr, uid, ids[0], context=context)
+                            last_modified_date = message.LastModifiedDate
+                            if ebay_message.last_modified_date != ebay_ebay_obj.to_default_format(cr, uid, last_modified_date):
+                                # last modified
                                 vals = dict(
-                                    name=media.MediaName,
-                                    image=base64.encodestring(urllib2.urlopen(media.MediaURL).read()),
-                                    full_url=media.MediaURL,
-                                    message_id=ebay_message_id,
+                                    last_modified_date=message.LastModifiedDate,
+                                    state=message.MessageStatus,
                                 )
-                                ebay_message_media_obj.create(cr, uid, vals, context=context)
-
-                page_number = page_number + 1
+                                ebay_message.write(vals)
+                                pass
+                        else:
+                            # create new message
+                            vals = dict(
+                                name=message.Question.Subject,
+                                body=message.Question.Body,
+                                message_type=message.Question.MessageType,
+                                question_type=message.Question.QuestionType,
+                                recipient_or_sender_id=message.Question.SenderID,
+                                sender_email=message.Question.SenderEmail,
+                                message_id=message.Question.MessageID,
+                                last_modified_date=message.LastModifiedDate,
+                                state=message.MessageStatus,
+                                ebay_user_id=user.id,
+                                type='in',
+                            )
+                            if message.has_key('Item'):
+                                vals['item_id'] = message.Item.ItemID
+                                vals['title'] = message.Item.Title
+                                vals['end_time'] = message.Item.ListingDetails.EndTime
+                                vals['start_time'] = message.Item.ListingDetails.StartTime
+                                vals['current_price'] = message.Item.SellingStatus.CurrentPrice.value
+                            ebay_message_id = ebay_message_obj.create(cr, uid, vals, context=context)
+                            
+                            message_medias = []
+                            if message.has_key('MessageMedia'):
+                                message_medias.extend(message.MessageMedia if type(message.MessageMedia) == list else [message.MessageMedia])
+                            if message.Question.has_key('MessageMedia'):
+                                message_medias.extend(message.Question.MessageMedia if type(message.Question.MessageMedia) == list else [message.Question.MessageMedia])
+                            if message_medias:
+                                for media in message_medias:
+                                    vals = dict(
+                                        name=media.MediaName,
+                                        image=base64.encodestring(urllib2.urlopen(media.MediaURL).read()),
+                                        full_url=media.MediaURL,
+                                        message_id=ebay_message_id,
+                                    )
+                                    ebay_message_media_obj.create(cr, uid, vals, context=context)
+    
+                    page_number = page_number + 1
         
         return {'type': 'ir.actions.act_window_close'}
 
@@ -199,6 +242,38 @@ ebay_message_media()
 class ebay_message(osv.osv):
     _name = "ebay.message"
     _description = "eBay member message"
+    
+    def _get_message_chat(self, cr, uid, ids, field_name, arg, context):
+        if context is None:
+            context = {}
+        ebay_message_obj =  self.pool.get('ebay.message')
+        template = '''
+{{ sender_id }}    {{ last_modified_date }}
+----------------------------------------------------------
+{{ body }}
+
+
+        '''
+        chat_template = Template(template)
+        res = {}
+        for record in self.browse(cr, uid, ids, context=context):
+            res[record.id] = ''
+            ebay_user_id = record.recipient_or_sender_id
+            item_id = record.item_id
+            last_modified_date = record.last_modified_date
+            if ebay_user_id and item_id:
+                domain = [('recipient_or_sender_id', '=', ebay_user_id), ('item_id', '=', item_id), ('last_modified_date', '<', last_modified_date)]
+                ids = ebay_message_obj.search(cr, uid, domain, context=context)
+                if ids:
+                    chat = ''
+                    for msg in ebay_message_obj.browse(cr, uid, ids, context=context):
+                        chat += chat_template.render(
+                            sender_id=msg.recipient_or_sender_id if msg.type == 'in' else msg.ebay_user_id.name,
+                            last_modified_date=msg.last_modified_date,
+                            body=msg.body,
+                        )
+                    res[record.id] = chat
+        return res
 
     _columns = {
         'name': fields.char('Subject', required=True),
@@ -244,11 +319,11 @@ class ebay_message(osv.osv):
             ('CustomCode', 'CustomCode'),
             ('Unanswered', 'Unanswered'),
             ('Answered', 'Answered'),], 'MessageStatus', readonly=True),
-        
+        'chat': fields.function(_get_message_chat, type='text', method="True", string='Chat', readonly=True),
         'type': fields.selection([
             ('in', 'in'),
             ('out', 'out'),
-        ], 'Type', required=True, readonly=True),
+        ], 'Type', required=True, readonly=True, select=True),
         'partner_id': fields.many2one('res.partner', 'Customer'),
         'ebay_user_id': fields.many2one('ebay.user', 'eBay User', readonly=True),
         'order_id': fields.many2one('ebay.sale.order', 'Order Reference', ondelete='cascade'),
