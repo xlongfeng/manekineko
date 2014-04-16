@@ -21,6 +21,7 @@
 import ebay
 import ebay_item
 import ebay_sale
+import ebay_message
 import photobucket
 import res_partner
 import wizard

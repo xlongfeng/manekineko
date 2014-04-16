@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+        <menuitem id="menu_ebay_message_management" name="Messages" parent="menu_ebay_top" sequence="40"/>
+        
+        <record id="view_ebay_message_form" model="ir.ui.view">
+            <field name="name">ebay message tree form</field>
+            <field name="model">ebay.message</field>
+            <field name="arch" type="xml">
+                <form string="eBay Message" version="7.0">
+                    <header>
+                        <button class="oe_highlight" name="action_reply" states="Unanswered,Answered" string="Reply" type="object"/>
+                        <button class="oe_highlight" name="action_send" states="Draft" string="Send" type="object"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <field name="type" invisible="1"/>
+                        <h2>
+                            <field name="name" placeholder="Subject" attrs="{'readonly': [('type','=','in')]}"/>
+                        </h2>
+                        <group>
+                            <group>
+                                <field name="ebay_user_id" class="oe_inline" attrs="{'readonly': [('type','=','in')]}"/>
+                                <field name="recipient_or_sender_id" attrs="{'readonly': [('type','=','in')]}"/>
+                                <field name="partner_id" domain="[('customer','=',True)]" context="{'search_default_customer':1, 'show_address': 1}" options='{"always_reload": True}'/>
+                            </group>
+                            <group>
+                                <field name="item_id" attrs="{'readonly': [('type','=','in')]}"/>
+                                <field name="title"/>
+                                <field name="current_price"/>
+                                <field name="start_time"/>
+                                <field name="end_time"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="last_modified_date"/>
+                            <field name="message_type" attrs="{'invisible': [('type','!=','in')]}"/>
+                            <field name="question_type" attrs="{'readonly': [('type','=','in')]}"/>
+                            <field name="body" attrs="{'readonly': [('type','=','in')]}"/>
+                        </group>
+                        <field name="media_ids" attrs="{'readonly': [('type','=','in')]}" mode="kanban">
+                            <kanban>
+                                <field name="name"/>
+                                <field name="has_image"/>
+                                <templates>
+                                    <t t-name="kanban-box">
+                                        <div class="oe_kanban_vignette">
+                                            <a t-if="! read_only_mode" type="delete" style="position: absolute; right: 0; padding: 4px; diplay: inline-block">Delete</a>
+                                            <a type="open">
+                                                <t t-if="record.has_image.raw_value === true and (!record.image or record.image.raw_value === false)">
+                                                    <img t-att-src="kanban_image('ebay.message.media', 'image', record.id.value, {'preview_image': 'image_small'})" class="oe_avatar oe_kanban_image"/>
+                                                </t>
+                                                <t t-if="record.image and record.image.raw_value !== false">
+                                                    <img t-att-src="'data:image/png;base64,'+record.image.raw_value" class="oe_avatar oe_kanban_image"/>
+                                                </t>
+                                            </a>
+                                            <div class="oe_kanban_details">
+                                                <h4 class="oe_partner_heading"><a type="open"><field name="name"/></a></h4>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </templates>
+                            </kanban>
+                            <form string="Message Media" version="7.0">
+                                <sheet>
+                                    <field name="image" widget='image' class="oe_avatar oe_left" options='{"preview_image": "image_medium", "size": [128, 128]}'/>
+                                    <div class="oe_title">
+                                        <div class="oe_edit_only">
+                                            <label for="name"/>
+                                        </div>
+                                        <h2>
+                                            <field name="name" default_focus="1" placeholder="The name of the image." />
+                                        </h2>
+                                    </div>
+                                    <group>
+                                        <field name="full_url" widget="url"/>
+                                        <field name="picture_format"/>
+                                        <field name="use_by_date"/>
+                                    </group>
+                                </sheet>
+                            </form>
+                        </field>
+                    </sheet>
+                    <div class="oe_chatter">
+                    </div>
+                </form>
+            </field>
+        </record>
+        
+        <record id="view_ebay_message_tree" model="ir.ui.view">
+            <field name="name">ebay message tree</field>
+            <field name="model">ebay.message</field>
+            <field name="type">tree</field>
+            <field name="arch" type="xml">
+                <tree string="ebay message tree" colors="blue:state in ('Unanswered')">
+                    <field name="recipient_or_sender_id"/>
+                    <field name="name"/>
+                    <field name="last_modified_date"/>
+                    <field name="state" invisible="1"/>
+                    <field name="type" invisible="1"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record id="view_ebay_message_filter" model="ir.ui.view">
+            <field name="name">ebay message select</field>
+            <field name="model">ebay.message</field>
+            <field name="arch" type="xml">
+                <search string="Search Message">
+                    <filter icon="terp-document-new" string="Unanswered" name="draft" domain="[('state','in',('Unanswered',))]"/>
+                    <filter icon="terp-check" string="Answered" domain="[('state','in',('Answered',))]"/>
+                    <separator/>
+                    <field name="partner_id" filter_domain="[('partner_id', 'child_of', self)]"/>
+                    <field name="recipient_or_sender_id"/>
+                    <field name="state"/>
+                    <group expand="0" string="Group By...">
+                        <filter string="Status" icon="terp-stock_effects-object-colorize" domain="[]" context="{'group_by':'state'}"/>
+                    </group>
+               </search>
+            </field>
+        </record>
+        
+        <record id="action_ebay_message_inbox_tree" model="ir.actions.act_window">
+            <field name="name">Inbox</field>
+            <field name="res_model">ebay.message</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+            <field name="domain">[('type','=','in')]</field>
+            <field name="context">{'default_type':'in'}</field>
+        </record>
+        <menuitem id="menu_ebay_message_inbox" action="action_ebay_message_inbox_tree" sequence="20" parent="menu_ebay_message_management"/>
+        
+        <record id="action_ebay_message_sent_tree" model="ir.actions.act_window">
+            <field name="name">Sent</field>
+            <field name="res_model">ebay.message</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+            <field name="domain">[('type','=','out')]</field>
+            <field name="context">{'default_type':'out'}</field>
+        </record>
+        <menuitem id="menu_ebay_message_sent" action="action_ebay_message_sent_tree" sequence="30" parent="menu_ebay_message_management"/>
+        
+        <!-- wizard view -->
+        <record model="ir.ui.view" id="ebay_get_message_view">
+            <field name="name">Get eBay Message</field>
+            <field name="model">ebay.message.synchronize</field>
+            <field name="arch" type="xml">
+                <form string="ebay get message" version="7.0">
+		    <separator string="Retrieve all messages for the authenticated seller"/>
+		    <p class="oe_grey">
+			Specifies the number of days (24-hour periods) in the past to search for messages.
+		    </p>
+		    <group>
+			<field name="number_of_days"/>
+                        <field name="message_status"/>
+			<field name="sandbox_user_included"/>
+		    </group>
+		    <footer>
+			<button name="action_sync" string="Sync" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <record id="action_ebay_get_message_view" model="ir.actions.act_window">
+            <field name="name">Send / Recieve</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">ebay.message.synchronize</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+        <menuitem id="menu_ebay_message_synchronize" action="action_ebay_get_message_view" sequence="40" parent="menu_ebay_message_management"/>
+
+    </data>
+</openerp>
