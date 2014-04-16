@@ -174,7 +174,7 @@ class ebay_message_media(osv.osv):
         'image_medium': fields.function(_get_image, fnct_inv=_set_image,
             string="Medium-sized image", type="binary", multi="_get_image",
             store={
-                'ebay.eps.picture': (lambda self, cr, uid, ids, c={}: ids, ['image'], 10),
+                'ebay.message.media': (lambda self, cr, uid, ids, c={}: ids, ['image'], 10),
             },
             help="Medium-sized image of this contact. It is automatically "\
                  "resized as a 128x128px image, with aspect ratio preserved. "\
@@ -182,7 +182,7 @@ class ebay_message_media(osv.osv):
         'image_small': fields.function(_get_image, fnct_inv=_set_image,
             string="Small-sized image", type="binary", multi="_get_image",
             store={
-                'ebay.eps.picture': (lambda self, cr, uid, ids, c={}: ids, ['image'], 10),
+                'ebay.message.media': (lambda self, cr, uid, ids, c={}: ids, ['image'], 10),
             },
             help="Small-sized image of this contact. It is automatically "\
                  "resized as a 64x64px image, with aspect ratio preserved. "\

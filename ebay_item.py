@@ -310,6 +310,7 @@ class ebay_eps_picture(osv.osv):
         if not ids:
             return True
         if 'image' in vals:
+            vals['dummy'] = False
             vals['use_by_date'] = fields.datetime.now()
         return super(ebay_eps_picture, self).write(cr, uid, ids, vals, context=context)
     
@@ -622,10 +623,6 @@ Secondary value1 | Secondary value2 ...
     def copy(self, cr, uid, id, default=None, context=None):
         if default is None:
             default = {}
-    
-    def copy(self, cr, uid, id, default=None, context=None):
-        if default is None:
-            default = {}
         
         name = self.read(cr, uid, id, ['name'], context=context)['name']
         default = default.copy()
@@ -640,11 +637,11 @@ Secondary value1 | Secondary value2 ...
     
     def unlink(self, cr, uid, ids, context=None, check=True):
         if check:
-            for variation in self.browse(cr, uid, ids, context=context):
-                if not variation.state != 'Active':
-                    variation.unlink(check=False)
+            for item in self.browse(cr, uid, ids, context=context):
+                if not item.parent_id or item.state != 'Active':
+                    item.unlink(check=False)
                 else:
-                    variation.write(dict(variation_deleted=True))
+                    item.write(dict(variation_deleted=True))
         else:
             return super(ebay_item, self).unlink(cr, uid, ids, context=context)
         
@@ -661,6 +658,7 @@ Secondary value1 | Secondary value2 ...
             if not picture.use_by_date or (parser.parse(picture.use_by_date) - time_now_pdt).days < 2:
                 image = io.BytesIO(base64.b64decode(picture.image))
                 call_data = dict()
+                call_data['PictureSet'] = 'Supersize'
                 call_data['PictureSystemVersion'] = 2
                 #call_data['PictureUploadPolicy'] = 'Add'
                 error_msg = 'Upload image %s' % picture.name
@@ -801,13 +799,17 @@ Secondary value1 | Secondary value2 ...
         else:
             if len(picture_url) == 1:
                 item_dict['Item']['PictureDetails'] = dict(
-                    PictureURL=picture_url[0],
+                    GalleryType='Gallery',
                     PhotoDisplay='PicturePack',
+                    PictureSource='EPS',
+                    PictureURL=picture_url[0],
                 )
             elif len(picture_url) > 1:
                 item_dict['Item']['PictureDetails'] = dict(
-                    PictureURL=picture_url,
+                    GalleryType='Gallery',
                     PhotoDisplay='PicturePack',
+                    PictureSource='EPS',
+                    PictureURL=picture_url,
                 )
         
         if auction:
@@ -961,6 +963,13 @@ Secondary value1 | Secondary value2 ...
             vals['response'] = api.response.json()
             item.write(vals)
             self.item_post_update(cr, uid, item, context=context)
+            
+        return True
+    
+    def action_upload_picture(self, cr, uid, ids, context=None):
+        for item in self.browse(cr, uid, ids, context=context):
+            user = item.ebay_user_id
+            self.item_create(cr, uid, item, context=context)
             
         return True
         
