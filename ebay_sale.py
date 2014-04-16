@@ -255,10 +255,27 @@ class ebay_sale_order(osv.osv):
         return self.write(cr, uid, ids, {'state': 'cancel'}, context)
         
     def action_send(self, cr, uid, ids, context=None):
+        sale_order_obj = self.pool.get('sale.order')
+        stock_move_obj = self.pool.get('stock.move')
         send_ids = list()
         for order in self.browse(cr, uid, ids, context=context):
             if order.state == 'assigned':
+                for sale_order in order.sale_order_ids:
+                    for picking in sale_order.picking_ids:
+                        move_line_ids = [move_line.id for move_line in picking.move_lines if move_line.state not in ['done','cancel']]
+                        stock_move_obj.action_done(cr, uid, move_line_ids, context=context)
                 # complete sale
+                call_data=dict(
+                    FeedbackInfo=dict(
+                        CommentText='Quick response and fast payment. Perfect! THANKS!!',
+                        CommentType='Positive',
+                        TargetUser=order.buyer_user_id,
+                    ),
+                    OrderID=order.order_id,
+                    Shipped="true",
+                )
+                error_msg = 'Complete sale for the specified order %s' % order.name
+                ebay_ebay_obj.call(cr, uid, user, 'CompleteSale', call_data, error_msg, context=context)
                 send_ids.append(order.id)
         return self.write(cr, uid, send_ids, {'state': 'sent'}, context)
         
