@@ -29,6 +29,8 @@ from operator import itemgetter
 import time
 import pytz
 
+from requests import exceptions
+
 from openerp import SUPERUSER_ID
 from openerp import pooler, tools
 from openerp.osv import fields, osv
@@ -46,7 +48,7 @@ sys.path.insert(0, '%s/ebaysdk-python/' % os.path.dirname(__file__))
 
 import ebaysdk
 from ebaysdk.utils import getNodeText
-from ebaysdk.exception import ConnectionError
+from ebaysdk.exception import ConnectionError, ConnectionResponseError
 from ebaysdk.trading import Connection as Trading
 
 _logger = logging.getLogger(__name__)
@@ -135,37 +137,46 @@ class ebay_ebay(osv.osv):
             
         return ebay_user_obj.browse(cr, uid, ids[0], context=context)
     
+    def trading(self, cr, uid, user, call_name, context=None):
+        api = Trading(domain=self.pool.get('ebay.ebay').get_ebay_api_domain(cr, uid, user.sale_site, user.sandbox))
+            
+        if user.ownership:
+            api.config.set('appid', user.app_id, force=True)
+            api.config.set('devid', user.dev_id, force=True)
+            api.config.set('certid', user.cert, force=True)
+        
+        if call_name not in ('GetSessionID', 'FetchToken'):
+            token = ''
+            if user.ownership and user.ebay_auth_token:
+                api.config.set('token', user.ebay_auth_token, force=True)
+            else:
+                auth_user = self.get_arbitrary_auth_user(cr, uid, user.sandbox, context)
+                api.config.set('appid', auth_user.app_id, force=True)
+                api.config.set('devid', auth_user.dev_id, force=True)
+                api.config.set('certid', auth_user.cert, force=True)
+                api.config.set('token', auth_user.ebay_auth_token, force=True)
+                
+        return api
+    
     def call(self, cr, uid, user, call_name, call_data=dict(), error_msg='', files=None, context=None):
         try:
-            api = Trading(domain=self.pool.get('ebay.ebay').get_ebay_api_domain(cr, uid, user.sale_site, user.sandbox))
-            
-            if user.ownership:
-                api.config.set('appid', user.app_id, force=True)
-                api.config.set('devid', user.dev_id, force=True)
-                api.config.set('certid', user.cert, force=True)
-            
-            if call_name not in ('GetSessionID', 'FetchToken'):
-                token = ''
-                if user.ownership and user.ebay_auth_token:
-                    api.config.set('token', user.ebay_auth_token, force=True)
-                else:
-                    auth_user = self.get_arbitrary_auth_user(cr, uid, user.sandbox, context)
-                    api.config.set('appid', auth_user.app_id, force=True)
-                    api.config.set('devid', auth_user.dev_id, force=True)
-                    api.config.set('certid', auth_user.cert, force=True)
-                    api.config.set('token', auth_user.ebay_auth_token, force=True)
-                
+            api = self.trading(cr, uid, user, call_name, context=context)
             api.execute(call_name, call_data, files=files)
             return api
-    
         except ConnectionError as e:
             raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
         except ConnectionResponseError as e:
             raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
-        except:
-            # Unknown exception
-            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, 'Unknown exception')))
-            return False
+        except exceptions.RequestException as e:
+            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+        except exceptions.ConnectionError as e:
+            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+        except exceptions.HTTPError as e:
+            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+        except exceptions.URLRequired as e:
+            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+        except exceptions.TooManyRedirects as e:
+            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
 
 ebay_ebay()
 
@@ -261,6 +272,7 @@ class ebay_user(osv.osv):
         'name': fields.char('User ID', required=True, select=True),
         # Selleris
         'seller_list_ids': fields.one2many('ebay.seller.list', 'user_id', 'Seller Lists', readonly=True),
+        'last_updated': fields.datetime('Last Updated'),
         # Application keys for authorization
         'ownership': fields.boolean('Ownership', readonly=True),
         'sandbox': fields.boolean('Sandbox'),
@@ -407,7 +419,16 @@ Hi friend.
             user.write(vals)
     
     def action_get_seller_list(self, cr, uid, ids, context=None):
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
+        ebay_seller_list_obj = self.pool.get('ebay.seller.list')
         for user in self.browse(cr, uid, ids, context=context):
+            last_updated = user.last_updated
+            if last_updated:
+                now_time = datetime.now()
+                last_updated = datetime.strptime(last_updated, tools.DEFAULT_SERVER_DATETIME_FORMAT)
+                delta = (now_time - last_updated).days
+                if delta < 7:
+                    continue
             cr.execute('delete from ebay_seller_list \
                             where user_id=%s', (user.id,))
             monthly_sales = 0.0
@@ -452,61 +473,87 @@ Hi friend.
                 call_data['UserID'] = user.name
                 call_data['DetailLevel'] = 'ReturnAll'
                 call_data['OutputSelector'] = output_selector
-                error_msg = 'Get the seller list for the specified user %s' % user.name
-                reply = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetSellerList', call_data, error_msg, context=context).response.reply
-                ebay_seller_list_obj = self.pool.get('ebay.seller.list')
-                has_more_items = reply.HasMoreItems == 'true'
-                items = reply.ItemArray.Item
-                if type(items) != list:
-                    items = [items]
-                for item in items:
-                    if item.ListingType not in ('FixedPriceItem', 'StoresFixedPrice'):
-                        continue
-                    vals = dict()
-                    vals['buy_it_now_price'] = float(item.BuyItNowPrice.value)
-                    vals['currency'] = item.Currency
-                    vals['hit_count'] = item.get('HitCount')
-                    vals['item_id'] = item.ItemID
-                    
-                    listing_details = item.ListingDetails
-                    vals['end_time'] = listing_details.EndTime
-                    start_time = listing_details.StartTime
-                    vals['start_time'] = start_time
-                    vals['view_item_url'] = listing_details.ViewItemURL
-                    
-                    vals['quantity'] = int(item.Quantity)
-                    
-                    selling_status = item.SellingStatus
-                    start_price = float(item.StartPrice.value)
-                    quantity_sold = int(selling_status.QuantitySold)
-                    vals['quantity_sold'] = quantity_sold
-                    vals['start_price'] = start_price
-                    
-                    vals['name'] = item.Title
-                    vals['watch_count'] = item.get('WatchCount')
-                    vals['user_id'] = user.id
-                    
-                    delta_days = (time_now - start_time).days
-                    if delta_days <= 0:
-                        delta_days = 1
-                    average_monthly_sales = quantity_sold * 30 / delta_days
-                    monthly_sales = monthly_sales + start_price * average_monthly_sales
-                    monthly_sales_volume = monthly_sales_volume + average_monthly_sales
-                    
-                    vals['average_monthly_sales'] = average_monthly_sales
-                    
-                    picture_details = item.get('PictureDetails')
-                    if picture_details:
-                        picture_url = picture_details.get('PictureURL', None)
-                        if type(picture_url) != list:
-                            vals['picture'] = '<img src="%s" width="500"/>' % picture_url
-                        else:
-                            vals['picture'] = '<img src="%s" width="500"/>' % picture_url[0]
-                    
-                    ebay_seller_list_obj.create(cr, uid, vals, context=context)
-                page_number = page_number + 1
+                call_name = 'GetSellerList'
+                api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+                try:
+                    api.execute(call_name, call_data)
+                    reply = api.response.reply
+                except ConnectionError as e:
+                    _logger.warning('%s -- %s' % (call_name, e))
+                    return
+                except ConnectionResponseError as e:
+                    _logger.warning('%s -- %s' % (call_name, e))
+                    return
+                except exceptions.RequestException as e:
+                    _logger.warning('%s -- %s' % (call_name, e))
+                    return
+                except exceptions.ConnectionError as e:
+                    _logger.warning('%s -- %s' % (call_name, e))
+                except exceptions.HTTPError as e:
+                    _logger.warning('%s -- %s' % (call_name, e))
+                    return
+                except exceptions.URLRequired as e:
+                    _logger.warning('%s -- %s' % (call_name, e))
+                    return
+                except exceptions.TooManyRedirects as e:
+                    _logger.warning('%s -- %s' % (call_name, e))
+                    return
+                else:
+                    has_more_items = reply.HasMoreItems == 'true'
+                    items = reply.ItemArray.Item
+                    if type(items) != list:
+                        items = [items]
+                    for item in items:
+                        if item.ListingType not in ('FixedPriceItem', 'StoresFixedPrice'):
+                            continue
+                        vals = dict()
+                        vals['buy_it_now_price'] = float(item.BuyItNowPrice.value)
+                        vals['currency'] = item.Currency
+                        vals['hit_count'] = item.HitCount if item.has_key('HitCount') else 0
+                        vals['item_id'] = item.ItemID
+                        
+                        listing_details = item.ListingDetails
+                        vals['end_time'] = listing_details.EndTime
+                        start_time = listing_details.StartTime
+                        vals['start_time'] = start_time
+                        vals['view_item_url'] = listing_details.ViewItemURL
+                        
+                        vals['quantity'] = int(item.Quantity)
+                        
+                        selling_status = item.SellingStatus
+                        start_price = float(item.StartPrice.value)
+                        quantity_sold = int(selling_status.QuantitySold)
+                        vals['quantity_sold'] = quantity_sold
+                        vals['start_price'] = start_price
+                        
+                        vals['name'] = item.Title
+                        vals['watch_count'] = item.WatchCount if item.has_key('WatchCount') else 0
+                        vals['user_id'] = user.id
+                        
+                        delta_days = (time_now - start_time).days
+                        if delta_days <= 0:
+                            delta_days = 1
+                        average_monthly_sales = quantity_sold * 30 / delta_days
+                        monthly_sales = monthly_sales + start_price * average_monthly_sales
+                        monthly_sales_volume = monthly_sales_volume + average_monthly_sales
+                        
+                        vals['average_monthly_sales'] = average_monthly_sales
+                        
+                        if item.has_key('PictureDetails') and  item.PictureDetails.has_key('PictureURL'):
+                            picture_url = item.PictureDetails.PictureURL
+                            if type(picture_url) != list:
+                                vals['picture'] = '<img src="%s" width="500"/>' % picture_url
+                            else:
+                                vals['picture'] = '<img src="%s" width="500"/>' % picture_url[0]
+                        
+                        ebay_seller_list_obj.create(cr, uid, vals, context=context)
+                    page_number = page_number + 1
                 
-            user.write(dict(monthly_sales=monthly_sales, monthly_sales_volume=monthly_sales_volume))
+            user.write(dict(
+                last_updated=fields.datetime.now(),
+                monthly_sales=monthly_sales,
+                monthly_sales_volume=monthly_sales_volume
+            ))
             
 ebay_user()
 
