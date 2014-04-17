@@ -160,6 +160,12 @@ class ebay_ebay(osv.osv):
     
         except ConnectionError as e:
             raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+        except ConnectionResponseError as e:
+            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+        except:
+            # Unknown exception
+            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, 'Unknown exception')))
+            return False
 
 ebay_ebay()
 

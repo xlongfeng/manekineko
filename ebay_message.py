@@ -116,18 +116,17 @@ class ebay_message_synchronize(osv.TransientModel):
             ids = ebay_sale_order_obj.search(cr, uid, domain, context=context)
             if ids:
                 for ebay_sale_order in ebay_sale_order_obj.browse(cr, uid, ids, context=context):
-                    print ebay_sale_order.name, ebay_sale_order.sd_record_number, ebay_sale_order.state
-                    '''
-                    delta = now - ebay_sale_order.shipped_time
-                    if delta > 7 and ebay_sale_orderafter_service_duration == '0':
-                        pass
-                    elif delta > 15 and ebay_sale_orderafter_service_duration == '7':
-                        pass
-                    elif delta > 25 and ebay_sale_orderafter_service_duration == '15':
-                        pass
+                    shipped_time = datetime.strptime(ebay_sale_order.shipped_time, tools.DEFAULT_SERVER_DATETIME_FORMAT)
+                    delta = (now_time - shipped_time).days
+                    duration = ebay_sale_order.after_service_duration
+                    if delta > 7 and duration == '0' or not duration:
+                        ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '7', context=context)
+                    elif delta > 15 and duration == '7':
+                        ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '15', context=context)
+                    elif delta > 25 and duration == '15':
+                        ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '25', context=context)
                     else:
                         pass
-                    '''
         else:
             end_creation_time = datetime.now()
             start_creation_time = end_creation_time - timedelta(int(this.number_of_days))
@@ -382,6 +381,65 @@ class ebay_message(osv.osv):
     def action_send(self, cr, uid, ids, context=None):
         for msg in self.browse(cr, uid, ids, context=context):
             pass
+        
+    def send_after_service_message(self, cr, uid, ebay_sale_order, duration, context=None):
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
+        user = ebay_sale_order.ebay_user_id
+        if duration == '7':
+            after_service_template = user.after_service_7_template
+        elif duration == '15':
+            after_service_template = user.after_service_15_template
+        elif duration == '25':
+            after_service_template = user.after_service_25_template
+        else:
+            after_service_template = False
+        if not after_service_template:
+            return
+        
+        now_time = datetime.now()
+        shipped_time = datetime.strptime(ebay_sale_order.shipped_time, tools.DEFAULT_SERVER_DATETIME_FORMAT)
+        delta = (now_time - shipped_time).days
+        chat_template = Template(after_service_template)
+        body = chat_template.render(
+            shipped_time=ebay_sale_order.shipped_time,
+            elapse=delta,
+        )
+        
+        item_id = ebay_sale_order.transactions[0].item_id
+        subject = 'Shipping of %s' % ebay_sale_order.transactions[0].name
+        question_type = 'Shipping'
+        last_modified_date=fields.datetime.now(),
+        
+        call_data=dict(
+            ItemID=item_id,
+            MemberMessage=dict(
+                Body=body,
+                QuestionType=question_type,
+                RecipientID=ebay_sale_order.buyer_user_id,
+                Subject=subject,
+                last_modified_date=last_modified_date,
+            )
+        )
+        error_msg = 'Send the messages AAQ to partner for the specified user %s' % user.name
+        #TODO
+        #reply = ebay_ebay_obj.call(cr, uid, user, 'AddMemberMessageAAQToPartner', call_data, error_msg, context=context).response.reply
+        #if reply.Ack == 'Success':
+        ebay_sale_order.write(dict(after_service_duration=duration))
+        vals=dict(
+            name=subject,
+            body=body,
+            question_type=question_type,
+            recipient_or_sender_id=ebay_sale_order.buyer_user_id,
+            item_id=ebay_sale_order.transactions[0].item_id,
+            title=ebay_sale_order.transactions[0].name,
+            last_modified_date=last_modified_date,
+            state='Sent',
+            type='out',
+            partner_id=ebay_sale_order.partner_id.id,
+            ebay_user_id=user.id,
+            order_id=ebay_sale_order.id,
+        )
+        self.create(cr, uid, vals, context=context)
     
 ebay_message()
 
