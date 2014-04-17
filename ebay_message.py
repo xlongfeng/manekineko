@@ -207,8 +207,26 @@ class ebay_message_synchronize(osv.TransientModel):
                                     ebay_message_media_obj.create(cr, uid, vals, context=context)
     
                     page_number = page_number + 1
-        
-        return {'type': 'ir.actions.act_window_close'}
+        if this.after_service_message:
+            return {
+                'type': 'ir.actions.act_window',
+                'name': 'Sent',
+                'view_mode': 'tree,form',
+                'view_type': 'form',
+                'res_model': 'ebay.message',
+                'domain': "[('type','=','out')]",
+                'context': "{'default_type':'out'}]",
+            }
+        else:
+            return {
+                'type': 'ir.actions.act_window',
+                'name': 'Inbox',
+                'view_mode': 'tree,form',
+                'view_type': 'form',
+                'res_model': 'ebay.message',
+                'domain': "[('type','=','in')]",
+                'context': "{'default_type':'in'}]",
+            }
 
 class ebay_message_media(osv.osv):
     _name = "ebay.message.media"

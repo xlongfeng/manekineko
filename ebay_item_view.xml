@@ -22,6 +22,8 @@
                     <sheet>
                         <field name="view_item_url" widget="url" attrs="{'invisible': [('item_id','=',False)]}"/>
                         <field name="parent_id" invisible="1"/>
+                        <field name="variation_invalid" invisible="1"/>
+                        <field name="variation_deleted" invisible="1"/>
                         <group attrs="{'invisible': [('parent_id','!=',False)]}">
                             <group>
                                 <field name="site" attrs="{'readonly': [('state','!=','Draft')]}"/>
@@ -30,16 +32,20 @@
                                 <field name="ebay_user_id" attrs="{'readonly': [('state','!=','Draft')]}"/>
                             </group>
                         </group>
-                        <group string="Title and Category">
+                        <group string="Title">
                             <div>
                                 <h2>
                                     <field name="name" default_focus="1" placeholder="Title"/>
                                 </h2>
                                 <field name="subtitle" placeholder="Subtitle" invisible="1"/>
-                                <field name="primary_category_id" on_change="on_change_primary_category_id(primary_category_id, listing_type)" placeholder="Category"/>
+                                <field name="primary_category_id" on_change="on_change_primary_category_id(primary_category_id, listing_type)" placeholder="Category" attrs="{'invisible': [('parent_id','!=',False)]}"/>
                                 <field name="secondary_category_id" placeholder="2nd Category" invisible="1"/>
-                                <div class="oe_title"><field name="store_category_name" placeholder="Store Category" class="oe_title"/></div>
-                                <div class="oe_title"><field name="store_category2name" placeholder="2nd Store Category" class="oe_title"/></div>
+                                <div class="oe_title" attrs="{'invisible': [('parent_id','!=',False)]}">
+                                    <field name="store_category_name" placeholder="Store Category" class="oe_title"/>
+                                </div>
+                                <div class="oe_title" attrs="{'invisible': [('parent_id','!=',False)]}">
+                                    <field name="store_category2name" placeholder="2nd Store Category" class="oe_title"/>
+                                </div>
                             </div>
                         </group>
                         <group>
@@ -49,19 +55,19 @@
                                 <field name="condition_description_id"/>
                             </group>
                             <group string="Selling Format">
-                                <field name="listing_type" on_change="on_change_listing_type(primary_category_id, listing_type)" attrs="{'readonly': [('state','!=','Draft')]}"/>
+                                <field name="listing_type" on_change="on_change_listing_type(primary_category_id, listing_type)" attrs="{'readonly': [('state','!=','Draft')], 'invisible': [('parent_id','!=',False)]}"/>
                                 <field name="start_price"/>
                                 <field name="buy_it_now_price" attrs="{'invisible': [('listing_type','!=','Chinese')]}"/>
-                                <field name="quantity"/>
-                                <field name="listing_duration"/>
+                                <field name="quantity" attrs="{'readonly': [('variation_deleted','=',True),('parent_id','!=',False)]}"/>
+                                <field name="listing_duration" attrs="{'invisible': [('parent_id','!=',False)]}"/>
                             </group>
                         </group>
-                        <field name="variation_invalid" invisible="1"/>
                         <group string="Variations" attrs="{'invisible': [('variation_invalid','=',True)]}">
                             <field name="variation" attrs="{'readonly': [('state','!=','Draft')]}"/>
                             <field name="variation_modify_specific_name" attrs="{'invisible': [('variation','=',False)]}"/>
                             <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)], 'readonly': [('state','=','Active')]}"/>
-                            <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)]}"/>
+                            <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)], 'readonly': [('parent_id','!=',False),('state','=','Active')]}"/>
+                            <!-- variation view start -->
                             <field name="child_ids" attrs="{'invisible': [('variation','=',False)]}">
                                 <tree>
                                     <field name="variation_specifics_set" string="Value"/>
@@ -80,59 +86,61 @@
                                         <field name="quantity" attrs="{'readonly': [('variation_deleted','=',True)]}"/>
                                         <field name="variation_deleted"/>
                                     </group>
-                                    <label for="eps_picture_ids"/>
-                                    <field name="eps_picture_ids" mode="kanban">
-                                        <kanban>
-                                            <field name="name"/>
-                                            <field name="has_image"/>
-                                            <templates>
-                                                <t t-name="kanban-box">
-                                                    <div class="oe_kanban_vignette">
-                                                        <a t-if="! read_only_mode" type="delete" style="position: absolute; right: 0; padding: 4px; diplay: inline-block">Delete</a>
-                                                        <a type="open">
-                                                            <t t-if="record.has_image.raw_value === true and (!record.image or record.image.raw_value === false)">
-                                                                <img t-att-src="kanban_image('ebay.eps.picture', 'image', record.id.value, {'preview_image': 'image_small'})" class="oe_avatar oe_kanban_image"/>
-                                                            </t>
-                                                            <t t-if="record.image and record.image.raw_value !== false">
-                                                                <img t-att-src="'data:image/png;base64,'+record.image.raw_value" class="oe_avatar oe_kanban_image"/>
-                                                            </t>
-                                                        </a>
-                                                        <div class="oe_kanban_details">
-                                                            <h4 class="oe_partner_heading"><a type="open"><field name="name"/></a></h4>
-                                                        </div>
-                                                    </div>
-                                                </t>
-                                            </templates>
-                                        </kanban>
-                                        <form string="EPS Picture" version="7.0">
-                                            <sheet>
-                                                <field name="image" widget='image' class="oe_avatar oe_left" options='{"preview_image": "image_medium", "size": [128, 128]}'/>
-                                                <div class="oe_title">
-                                                    <div class="oe_edit_only">
-                                                        <label for="name"/>
-                                                    </div>
-                                                    <h1>
-                                                        <field name="name" default_focus="1" placeholder="Name" />
-                                                    </h1>
-                                                </div>
-                                                <group>
-                                                    <field name="use_by_date"/>
-                                                    <field name="full_url" widget="url"/>
-                                                    <field name="base_url"/>
+                                    <notebook colspan="4">
+                                        <page string="Pictures" autofocus="autofocus">
+                                            <label for="eps_picture_ids"/>
+                                            <field name="eps_picture_ids" mode="kanban">
+                                                <kanban>
+                                                    <field name="name"/>
+                                                    <field name="has_image"/>
                                                     <field name="picture_format"/>
-                                                </group>
-                                                <field name="picturesetmember_ids">
-                                                    <tree string="Picture Set Member">
-                                                        <field name="member_url" widget="url"/>
-                                                        <field name="picture_height"/>
-                                                        <field name="picture_width"/>
-                                                    </tree>
-                                                </field>
-                                            </sheet>
-                                        </form>
-                                    </field>
+                                                    <field name="use_by_date"/>
+                                                    <templates>
+                                                        <t t-name="kanban-box">
+                                                            <div class="oe_kanban_vignette">
+                                                                <a t-if="! read_only_mode" type="delete" style="position: absolute; right: 0; padding: 4px; diplay: inline-block">Delete</a>
+                                                                <a type="open">
+                                                                    <t t-if="record.has_image.raw_value === true and (!record.image or record.image.raw_value === false)">
+                                                                        <img t-att-src="kanban_image('ebay.eps.picture', 'image', record.id.value, {'preview_image': 'image_small'})" class="oe_avatar oe_kanban_image"/>
+                                                                    </t>
+                                                                    <t t-if="record.image and record.image.raw_value !== false">
+                                                                        <img t-att-src="'data:image/png;base64,'+record.image.raw_value" class="oe_avatar oe_kanban_image"/>
+                                                                    </t>
+                                                                </a>
+                                                                <div class="oe_kanban_details">
+                                                                    <h4 class="oe_partner_heading"><a type="open"><field name="name"/></a></h4>
+                                                                    <ul>
+                                                                        <li t-if="record.picture_format.raw_value"><field name="picture_format"/></li>
+                                                                        <li t-if="record.use_by_date.raw_value"><field name="use_by_date"/></li>
+                                                                    </ul>
+                                                                </div>
+                                                            </div>
+                                                        </t>
+                                                    </templates>
+                                                </kanban>
+                                                <form string="EPS Picture" version="7.0">
+                                                    <sheet>
+                                                        <group>
+                                                            <field name="full_url" widget="url"/>
+                                                            <field name="name" default_focus="1"/>
+                                                        </group>
+                                                        <field name="image" widget='image' class="oe_avatar oe_left" options='{"preview_image": "image", "size": [500, 500]}'/>
+                                                    </sheet>
+                                                </form>
+                                            </field>
+                                        </page>
+                                        <page string="Product">
+                                            <field name="product_ids">
+                                                <tree>
+                                                    <field name="product_id"/>
+                                                    <field name="uos_coeff"/>
+                                                </tree>
+                                            </field>
+                                        </page>
+                                    </notebook>
                                 </form>
                             </field>
+                            <!-- variation view end -->
                         </group>
                         <notebook colspan="4">
                             <page string="Pictures" autofocus="autofocus" style="min-height:480px">
@@ -140,6 +148,8 @@
                                     <kanban>
                                         <field name="name"/>
                                         <field name="has_image"/>
+                                        <field name="picture_format"/>
+                                        <field name="use_by_date"/>
                                         <templates>
                                             <t t-name="kanban-box">
                                                 <div class="oe_kanban_vignette">
@@ -154,6 +164,10 @@
                                                     </a>
                                                     <div class="oe_kanban_details">
                                                         <h4 class="oe_partner_heading"><a type="open"><field name="name"/></a></h4>
+                                                        <ul>
+                                                            <li t-if="record.picture_format.raw_value"><field name="picture_format"/></li>
+                                                            <li t-if="record.use_by_date.raw_value"><field name="use_by_date"/></li>
+                                                        </ul>
                                                     </div>
                                                 </div>
                                             </t>
@@ -161,21 +175,12 @@
                                     </kanban>
                                     <form string="EPS Picture" version="7.0">
                                         <sheet>
-                                            <field name="image" widget='image' class="oe_avatar oe_left" options='{"preview_image": "image_medium", "size": [128, 128]}'/>
-                                            <div class="oe_title">
-                                                <div class="oe_edit_only">
-                                                    <label for="name"/>
-                                                </div>
-                                                <h1>
-                                                    <field name="name" default_focus="1" placeholder="Name" />
-                                                </h1>
-                                            </div>
                                             <group>
-                                                <field name="use_by_date"/>
                                                 <field name="full_url" widget="url"/>
-                                                <field name="base_url"/>
-                                                <field name="picture_format"/>
+                                                <field name="name" default_focus="1"/>
                                             </group>
+                                            <field name="image" widget='image' class="oe_avatar oe_left" options='{"preview_image": "image", "size": [500, 500]}'/>
+                                            <!--
                                             <field name="picturesetmember_ids">
                                                 <tree string="Picture Set Member">
                                                     <field name="member_url" widget="url"/>
@@ -183,6 +188,7 @@
                                                     <field name="picture_width"/>
                                                 </tree>
                                             </field>
+                                            -->
                                         </sheet>
                                     </form>
                                 </field>
@@ -193,7 +199,7 @@
                                 </group>
                                 <field name="description" widget="ckeditor"/>
                             </page>
-                            <page string="Product" style="min-height:480px">
+                            <page string="Product" style="min-height:480px" attrs="{'invisible': [('variation','=',True)]}">
                                 <field name="product_ids">
                                     <tree>
                                         <field name="product_id"/>
