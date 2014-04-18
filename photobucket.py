@@ -32,6 +32,80 @@ sys.path.insert(0, '%s/PbApi/' % os.path.dirname(__file__))
 import pbapi
 from pbapi.error import *
 
+class photobucket_authorize(osv.TransientModel):
+    _name = 'photobucket.authorize'
+    _description = 'Photobucket Authentication'
+    
+    _columns = {
+        'consumer_id': fields.many2one('photobucket.consumer', 'Consumer'),
+        'oauth_token_key': fields.char('Oauth Token Key', readonly=True),
+        'oauth_token_secret': fields.char('Oauth Token Secret', readonly=True),
+        'login_url': fields.char('Login URL', size=256, readonly=True),
+        'state': fields.selection([
+            ('confirm', 'confirm'),
+            ('login', 'login')]),
+    }
+    
+    _defaults = {
+        'state': 'confirm',
+    }
+    
+    def get_login_url(self, cr, uid, ids, context=None):
+        if context is None:
+            context = {}
+        this = self.browse(cr, uid, ids)[0]
+        
+        record_id = context and context.get('active_id', False)
+        consumer = self.pool.get('photobucket.consumer').browse(cr, uid, record_id, context=context)
+        
+        api = pbapi.PbApi(consumer.consumer_key, consumer.consumer_secret)
+        api.set_response_parser('xmldomdict')
+        api.login().request().post().load_token_from_response()
+        
+        self.write(cr, uid, ids, {'consumer_id': record_id,
+                                  'login_url': api.login_url,
+                                  'oauth_token_key': api.oauth_token.key,
+                                  'oauth_token_secret': api.oauth_token.secret,
+                                  'state': 'login'}, context=context)
+        
+        return {
+            'name': "Photobucket Authentication",
+            'type': 'ir.actions.act_window',
+            'res_model': 'photobucket.authorize',
+            'view_mode': 'form',
+            'view_type': 'form',
+            'res_id': this.id,
+            'views': [(False, 'form')],
+            'target': 'new',
+        }
+    
+    def get_oauth_token(self, cr, uid, ids, context=None):
+        if context is None:
+            context = {}
+        this = self.browse(cr, uid, ids)[0]
+        
+        consumer = this.consumer_id
+        
+        api = pbapi.PbApi(consumer.consumer_key, consumer.consumer_secret)
+        api.set_response_parser('xmldomdict')
+        api.set_oauth_token(this.oauth_token_key, this.oauth_token_secret, consumer.name)
+        api.login().access().post().load_token_from_response()
+        
+        oauth_token = api.oauth_token
+        
+        consumer.write(dict(
+            oauth_token_key=oauth_token.key,
+            oauth_token_secret=oauth_token.secret,
+        ))
+        
+        return {'type': 'ir.actions.act_window',
+            'view_mode': 'form,tree',
+            'view_type': 'form',
+            'res_model': 'photobucket.consumer',
+            'res_id': consumer.id}
+
+photobucket_authorize()
+
 class photobucket_consumer(osv.osv):
     _name = "photobucket.consumer"
     _description = "Photobucket consumer"
@@ -43,6 +117,11 @@ class photobucket_consumer(osv.osv):
         'oauth_token_key': fields.char('Oauth Token Key', readonly=True),
         'oauth_token_secret': fields.char('Oauth Token Secret', readonly=True),
         'media_ids': fields.one2many('photobucket.media', 'consumer_id', 'Medias'),
+    }
+    
+    _defaults = {
+        'consumer_key': '149833735',
+        'consumer_secret': '9583020d7838b0a56c161fa65800e1c0',
     }
     
 photobucket_consumer()

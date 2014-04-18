@@ -3,6 +3,47 @@
     <data>
         <menuitem id="menu_photobucket" name="Photobucket" sequence="30" parent="menu_ebay_listing_activity"/>
         
+        <record model="ir.ui.view" id="photobucket_authorize_view">
+            <field name="name">photobucket authentication</field>
+            <field name="model">photobucket.authorize</field>
+            <field name="arch" type="xml">
+                <form string="photobucket authentication" version="7.0">
+		    <separator string="Login photobucket to grant application access"/>
+		    <p class="oe_grey" states="confirm">
+			Do you want to authroize for this photobucket consumer?
+		    </p>
+		    <footer states="confirm">
+			<button name="get_login_url" string="OK" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		    <field name="oauth_token_key" invisible="1"/>
+		    <field name="oauth_token_secret" invisible="1"/>
+		    <field name="login_url" widget='url' states="login"/>
+		    <field name="state" invisible="1"/>
+		    <p class="oe_grey" states="login">
+			Sign in with your photobucket consumer ID and password to link your account to OpenERP.
+			<br/>
+			After successful login, click OK to complete the link procedure.
+		    </p>
+		    <footer states="login">
+			<button name="get_oauth_token" string="OK" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		</form>
+	    </field>
+	</record>
+        
+        <record id="action_photobucket_authorize" model="ir.actions.act_window">
+            <field name="type">ir.actions.act_window</field>
+            <field name="name">Photobucket Authentication</field>
+            <field name="res_model">photobucket.authorize</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+        
         <record model="ir.ui.view" id="photobucket_consumer_form_view">
             <field name="name">photobucket consumer form</field>
             <field name="model">photobucket.consumer</field>
@@ -57,16 +98,9 @@
                         <div class="oe_right">
                             <field name="consumer_id" placeholder="Consumer"/>
                         </div>
-                        <field name="image" widget='image' class="oe_avatar oe_left" options='{"preview_image": "image_medium", "size": [128, 128]}'/>
-                        <div class="oe_title">
-                            <div class="oe_edit_only">
-                                <label for="name"/>
-                            </div>
-                            <h1>
-                                <field name="name" default_focus="1" placeholder="Name" />
-                            </h1>
-                        </div>
+                        <field name="image" widget='image' class="oe_avatar oe_left" options='{"preview_image": "image", "size": [500, 500]}'/>
                         <group>
+                            <field name="name" default_focus="1"/>
                             <field name='description'/>
                             <field name='browseurl' widget='url'/>
                             <field name='thumb'/>

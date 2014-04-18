@@ -163,6 +163,7 @@ class get_order(osv.TransientModel):
                             vals['payment_hold_status'] = order.PaymentHoldStatus
                             vals['sd_record_number'] = order.ShippingDetails.SellingManagerSalesRecordNumber
                             vals['shipped_time'] = order.ShippedTime
+                            vals['state'] = 'sent'
                             sale_order.write(vals)
                     else:
                         # finding existing customer

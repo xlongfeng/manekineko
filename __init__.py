@@ -19,6 +19,8 @@
 #
 ##############################################################################
 import ebay
+import ebay_seller_list
+import ebay_user
 import ebay_item
 import ebay_sale
 import ebay_message

@@ -1095,7 +1095,6 @@ Secondary value1 | Secondary value2 ...
         return True
         
     def action_synchronize(self, cr, uid, ids, context=None):
-        # TODO need to update variation quantity sold
         for item in self.browse(cr, uid, ids, context=context):
             if item.state not in ('Active', 'Completed', 'Ended'):
                 continue
