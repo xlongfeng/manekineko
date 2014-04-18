@@ -31,11 +31,16 @@ from jinja2 import Template
 from openerp.tools import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT, DATETIME_FORMATS_MAP, float_compare
 from openerp import pooler, tools
 from dateutil.relativedelta import relativedelta
-from openerp.osv import fields, osv
+from openerp.osv import fields, osv, orm
 from openerp import netsvc
 from openerp.tools.translate import _
 import pytz
 from openerp import SUPERUSER_ID
+
+from requests import exceptions
+import ebaysdk
+from ebaysdk.utils import getNodeText
+from ebaysdk.exception import ConnectionError, ConnectionResponseError
 
 class ebay_message_synchronize(osv.TransientModel):
     _name = 'ebay.message.synchronize'
@@ -58,6 +63,10 @@ class ebay_message_synchronize(osv.TransientModel):
         'after_service_message': fields.boolean('After Service Message'),
         'ignoe_order_before': fields.datetime('Ignore Orders Before'),
         'sandbox_user_included': fields.boolean ('Sandbox User Included'),
+        'exception': fields.text('Exception', readonly=True),
+        'state': fields.selection([
+            ('option', 'option'),
+            ('exception', 'exception')]),
     }
     
     _defaults = {
@@ -65,6 +74,8 @@ class ebay_message_synchronize(osv.TransientModel):
         'after_service_message': False,
         'ignoe_order_before': (datetime.now() - timedelta(35)).strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT),
         'sandbox_user_included': False,
+        'exception': '',
+        'state': 'option'
     }
     
     def view_init(self, cr, uid, fields_list, context=None):
@@ -120,13 +131,16 @@ class ebay_message_synchronize(osv.TransientModel):
                     delta = (now_time - shipped_time).days
                     duration = ebay_sale_order.after_service_duration
                     if delta > 7 and duration == '0' or not duration:
-                        ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '7', context=context)
+                        res = ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '7', context=context)
                     elif delta > 15 and duration == '7':
-                        ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '15', context=context)
+                        res = ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '15', context=context)
                     elif delta > 25 and duration == '15':
-                        ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '25', context=context)
+                        res = ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '25', context=context)
                     else:
-                        pass
+                        res = True
+                    if res != True:
+                        this.exception = res
+                        break
         else:
             end_creation_time = datetime.now()
             start_creation_time = end_creation_time - timedelta(int(this.number_of_days))
@@ -206,6 +220,21 @@ class ebay_message_synchronize(osv.TransientModel):
                                     ebay_message_media_obj.create(cr, uid, vals, context=context)
     
                     page_number = page_number + 1
+                    
+        if this.exception:
+            self.write(cr, uid, [this.id], {
+                                  'exception': this.exception,
+                                  'state': 'exception'}, context=context)
+            return  {
+                'name': "Send / Recieve",
+                'type': 'ir.actions.act_window',
+                'res_model': 'ebay.message.synchronize',
+                'view_mode': 'form',
+                'view_type': 'form',
+                'res_id': this.id,
+                'views': [(False, 'form')],
+                'target': 'new',
+            }
         if this.after_service_message:
             return {
                 'type': 'ir.actions.act_window',
@@ -394,7 +423,7 @@ class ebay_message(osv.osv):
         else:
             after_service_template = False
         if not after_service_template:
-            return
+            return 'After service template is empty!'
         
         now_time = datetime.now()
         shipped_time = datetime.strptime(ebay_sale_order.shipped_time, tools.DEFAULT_SERVER_DATETIME_FORMAT)
@@ -413,33 +442,53 @@ class ebay_message(osv.osv):
         call_data=dict(
             ItemID=item_id,
             MemberMessage=dict(
-                Body=body,
+                Body='<![CDATA[%s]]>' % body,
                 QuestionType=question_type,
                 RecipientID=ebay_sale_order.buyer_user_id,
                 Subject=subject,
                 last_modified_date=last_modified_date,
             )
         )
-        error_msg = 'Send the messages AAQ to partner for the specified user %s' % user.name
-        #TODO
-        #reply = ebay_ebay_obj.call(cr, uid, user, 'AddMemberMessageAAQToPartner', call_data, error_msg, context=context).response.reply
-        #if reply.Ack == 'Success':
-        ebay_sale_order.write(dict(after_service_duration=duration))
-        vals=dict(
-            name=subject,
-            body=body,
-            question_type=question_type,
-            recipient_or_sender_id=ebay_sale_order.buyer_user_id,
-            item_id=ebay_sale_order.transactions[0].item_id,
-            title=ebay_sale_order.transactions[0].name,
-            last_modified_date=last_modified_date,
-            state='Sent',
-            type='out',
-            partner_id=ebay_sale_order.partner_id.id,
-            ebay_user_id=user.id,
-            order_id=ebay_sale_order.id,
-        )
-        self.create(cr, uid, vals, context=context)
+        call_name = 'AddMemberMessageAAQToPartner'
+        
+        api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+        try:
+            api.execute(call_name, call_data)
+        except ConnectionError as e:
+            res = str(e)
+        except ConnectionResponseError as e:
+            res = str(e)
+        except exceptions.RequestException as e:
+            res = str(e)
+        except exceptions.ConnectionError as e:
+            res = str(e)
+        except exceptions.HTTPError as e:
+            res = str(e)
+        except exceptions.URLRequired as e:
+            res = str(e)
+        except exceptions.TooManyRedirects as e:
+            res = str(e)
+        else:
+            #reply = api.response.reply
+            #reply.Ack == 'Success'
+            ebay_sale_order.write(dict(after_service_duration=duration))
+            vals=dict(
+                name=subject,
+                body=body,
+                question_type=question_type,
+                recipient_or_sender_id=ebay_sale_order.buyer_user_id,
+                item_id=ebay_sale_order.transactions[0].item_id,
+                title=ebay_sale_order.transactions[0].name,
+                last_modified_date=last_modified_date,
+                state='Sent',
+                type='out',
+                partner_id=ebay_sale_order.partner_id.id,
+                ebay_user_id=user.id,
+                order_id=ebay_sale_order.id,
+            )
+            self.create(cr, uid, vals, context=context)
+            res = True
+        return res
     
 ebay_message()
 

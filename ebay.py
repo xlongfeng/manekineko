@@ -33,7 +33,7 @@ from requests import exceptions
 
 from openerp import SUPERUSER_ID
 from openerp import pooler, tools
-from openerp.osv import fields, osv
+from openerp.osv import fields, osv, orm
 from openerp.tools.translate import _
 from openerp.tools.float_utils import float_round
 
@@ -124,7 +124,7 @@ class ebay_ebay(osv.osv):
             domain.append(('sandbox', '=', False))
         ids = ebay_user_obj.search(cr, uid, domain, context=context)
         if not ids:
-            raise osv.except_osv(_('Warning!'), _('Can not find an authorized user'))
+            raise orm.except_orm(_('Warning!'), _('Can not find an authorized user'))
             
         return ebay_user_obj.browse(cr, uid, ids, context=context)
     
@@ -133,7 +133,7 @@ class ebay_ebay(osv.osv):
         ids = ebay_user_obj.search(cr, uid,
                 [('sandbox', '=', sandbox), ('ownership', '=', True), ('ebay_auth_token', '!=', False)], context=context)
         if not ids:
-            raise osv.except_osv(_('Warning!'), _('Can not find an authorized user'))
+            raise orm.except_orm(_('Warning!'), _('Can not find an authorized user'))
             
         return ebay_user_obj.browse(cr, uid, ids[0], context=context)
     
@@ -162,21 +162,22 @@ class ebay_ebay(osv.osv):
         try:
             api = self.trading(cr, uid, user, call_name, context=context)
             api.execute(call_name, call_data, files=files)
-            return api
         except ConnectionError as e:
-            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
         except ConnectionResponseError as e:
-            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
         except exceptions.RequestException as e:
-            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
         except exceptions.ConnectionError as e:
-            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
         except exceptions.HTTPError as e:
-            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
         except exceptions.URLRequired as e:
-            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
         except exceptions.TooManyRedirects as e:
-            raise osv.except_osv(_('Warning!'), _('%s: %s' % (error_msg, e)))
+            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
+        else:
+            return api
 
 ebay_ebay()
 
