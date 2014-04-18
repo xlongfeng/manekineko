@@ -550,6 +550,7 @@ Secondary value1 | Secondary value2 ...
             ('Ended', 'Ended'),
         ], 'Status', readonly=True),
         'time_left': fields.char('Time Left', readonly=True),
+        'need_to_be_updated': fields.boolean('Need to be updated'),
         'revise_date': fields.datetime('Revise Date', readonly=True),
         'update_date': fields.datetime('Update Date', readonly=True),
         'view_item_url': fields.function(_get_item_view_url, type='char', method="True", string='View Item'),
@@ -585,6 +586,7 @@ Secondary value1 | Secondary value2 ...
         'variation_deleted': False,
         'start_price': 9.99,
         'state': 'Draft',
+        'need_to_be_updated': True,
         'site': 'US',
         'uuid': lambda self, cr, uid, context: uuid.uuid1().hex,
     }
@@ -631,6 +633,7 @@ Secondary value1 | Secondary value2 ...
             'name': name + _(' (Copy)'),
             'item_id': '',
             'state': 'Draft',
+            'need_to_be_updated': True,
             'uuid': uuid.uuid1().hex,
         })
 
@@ -647,6 +650,56 @@ Secondary value1 | Secondary value2 ...
             return super(ebay_item, self).unlink(cr, uid, ids, context=context)
         
         return True
+    
+    def write(self, cr, uid, ids, vals, context=None):
+        if context is None:
+            context = {}
+        if not ids:
+            return True
+        keywords = set([
+            'buyer_requirement_details_id',
+            'buy_it_now_price',
+            'condition_description_id',
+            'condition_id',
+            'country',
+            'cross_border_trade',
+            'currency',
+            'description',
+            'disable_buyer_requirements',
+            'dispatch_time_max',
+            'hit_counter',
+            'item_specifics',
+            'listing_duration',
+            'listing_type',
+            'location',
+            'out_of_stock_control',
+            'payment_methods',
+            'paypal_email_address',
+            'payment_methods',
+            'postal_code',
+            'primary_category_id',
+            'quantity',
+            'return_policy_id',
+            'schedule_time',
+            'secondary_category_id',
+            'shipping_details_id',
+            'shipping_terms_in_description',
+            'site',
+            'start_price',
+            'store_category2id',
+            'store_category2name',
+            'store_category_id',
+            'store_category_name',
+            'subtitle',
+            'name',
+            'uuid',
+            'variation_specifics_set',
+            'variation_deleted',
+        ])
+        print vals.keys()
+        if len(keywords & set(vals.keys())) > 0 or vals.get('variation_modify_specific_name', ''):
+            vals['need_to_be_updated'] = True
+        return super(ebay_item, self).write(cr, uid, ids, vals, context=context)
     
     def upload_pictures(self, cr, uid, user, eps_pictures, context=None):
         if not eps_pictures:
@@ -823,6 +876,7 @@ Secondary value1 | Secondary value2 ...
             # Variations
             if not item.variation_invalid and item.variation:
                 del item_dict['Item']['Quantity']
+                del item_dict['Item']['StartPrice']
                 self.variation_dict(cr, uid, item, item_dict, context=context)
         if item.buyer_requirement_details_id:
             brd = item.buyer_requirement_details_id
@@ -922,7 +976,7 @@ Secondary value1 | Secondary value2 ...
         if varations:
             for varation in varations:
                 eps_picture_extend_use_by_date(varation)
-                varation.write({'state': item.state})
+                varation.write({'need_to_be_updated': False, 'state': item.state})
     
     def action_verify(self, cr, uid, ids, context=None):
         for item in self.browse(cr, uid, ids, context=context):
@@ -959,6 +1013,7 @@ Secondary value1 | Secondary value2 ...
             vals['end_time'] = api.response.reply.EndTime
             vals['item_id'] = api.response.reply.ItemID
             vals['start_time'] = api.response.reply.StartTime
+            vals['need_to_be_updated'] = False
             vals['revise_date'] = fields.datetime.now()
             vals['state'] = 'Active'
             vals['response'] = api.response.json()
@@ -1031,6 +1086,7 @@ Secondary value1 | Secondary value2 ...
             api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
             vals = dict()
             vals['end_time'] = api.response.reply.EndTime
+            vals['need_to_be_updated'] = False
             vals['revise_date'] = fields.datetime.now()
             vals['response'] = api.response.json()
             item.write(vals)
