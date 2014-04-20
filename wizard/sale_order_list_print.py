@@ -181,7 +181,10 @@ class ebay_sale_order_list_print(osv.TransientModel):
             row = i + 1
             for key, value in self.prepare_4px_slip(cr, uid, slip, context=context).items():
                 col = headers.index(key)
-                worksheet.write(row, col, value)
+                if row % 2:
+                    worksheet.write(row, col, value, xlwt.easyxf('pattern: pattern solid, fore_color light_green;'))
+                else:
+                    worksheet.write(row, col, value)
         
         return workbook
     
@@ -190,12 +193,59 @@ class ebay_sale_order_list_print(osv.TransientModel):
         order_lines = sale_order.order_line
         partner = sale_order.partner_shipping_id
         return partner.address_id, dict(
-            ref=sale_order.name,
+            ref=ebay_sale_order.name.replace('/', ''),
             partner=partner,
             buyer_user_id=ebay_sale_order.buyer_user_id,
             shipping_service=ebay_sale_order.shipping_service,
             order_lines=order_lines,
+            ebay_sale_order=ebay_sale_order,
         )
+    
+    def prepare_delivery_order(self, cr, uid, worksheet, slips, context=None):
+        headers = [
+            'Order Number',
+            'Product',
+            'Description',
+        ]
+        
+        header_width = {
+            'Order Number': (1 + 16) * 256,
+            'Product': (1 + 56) * 256,
+            'Description': (1 + 80) * 256,
+        }
+        
+        for i, name in enumerate(headers):
+            worksheet.write(0, i, name)
+            width = header_width.get(name, 0)
+            width = width if width else (1 + 16) * 256
+            worksheet.col(i).width = width
+            
+        for i, slip in enumerate(slips):
+            row = i + 1
+            def _prepare_order(slip):
+                product = ''
+                description = ''
+                order_lines = slip['order_lines']
+                for line in order_lines:
+                    if product:
+                        product += '\n'
+                        description += '\n'
+                    product += '%s ( x%d )' % (line.product_id.name, line.product_uom_qty)
+                    description += line.name
+                order = {
+                    'Order Number': slip['ref'],
+                    'Product': product,
+                    'Description': description,
+                }
+                return order
+                
+            order = _prepare_order(slip)
+            for key, value in order.items():
+                col = headers.index(key)
+                if row % 2:
+                    worksheet.write(row, col, value, xlwt.easyxf('pattern: pattern solid, fore_color light_green;'))
+                else:
+                    worksheet.write(row, col, value)
     
     def action_print(self, cr, uid, ids, context=None):
         if context is None:
@@ -221,6 +271,9 @@ class ebay_sale_order_list_print(osv.TransientModel):
         print delivery_slips
         
         workbook = self.carrier_4px_format(cr, uid, delivery_slips, context=context)
+        
+        worksheet = workbook.add_sheet('Delivery Order')
+        self.prepare_delivery_order(cr, uid, worksheet, delivery_slips, context=context)
         
         fp = cStringIO.StringIO()
         workbook.save(fp)
