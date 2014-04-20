@@ -264,8 +264,10 @@ class ebay_sale_order(osv.osv):
     def action_send(self, cr, uid, ids, context=None):
         sale_order_obj = self.pool.get('sale.order')
         stock_move_obj = self.pool.get('stock.move')
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
         send_ids = list()
         for order in self.browse(cr, uid, ids, context=context):
+            user = order.ebay_user_id
             if order.state == 'assigned':
                 for sale_order in order.sale_order_ids:
                     for picking in sale_order.picking_ids:

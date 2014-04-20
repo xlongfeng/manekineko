@@ -173,7 +173,7 @@ class ebay_item_synchronize(osv.TransientModel):
                     continue
                 
                 # new listing
-                if selling_status.ListingStatus not in ('Active',):
+                if not this.autocreate or selling_status.ListingStatus not in ('Active',):
                     continue
                 
                 vals = dict()
@@ -309,6 +309,7 @@ class ebay_item_synchronize(osv.TransientModel):
                             variation_specifics_set=variation_specifics,
                             parent_id = id,
                             quantity_sold=_v.SellingStatus.QuantitySold,
+                            state='Active',
                         )
                         
                         # create item child variation

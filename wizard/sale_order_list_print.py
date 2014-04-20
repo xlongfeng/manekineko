@@ -75,6 +75,7 @@ class ebay_sale_order_list_print(osv.TransientModel):
         weight = 0.0
         for line in order_lines:
             weight += line.product_id.weight * line.product_uom_qty
+        weight = weight if weight > 0.01 else 0.01
         slip_line = {
             u'客户单号': slip['ref'],
             u'服务商单号': '',
@@ -100,14 +101,16 @@ class ebay_sale_order_list_print(osv.TransientModel):
             #u'保险类型': '',
             #u'保险价值': '',
             #u'订单备注': '',
-            u'重量': weight if weight else 0.02,
+            u'重量': weight,
             #u'是否退件': '',
         }
         for i, line in enumerate(order_lines):
+            price_unit = price_unit if line.price_unit > 8 else 8
+            declared_value = price_unit / line.product_uom_qty
             order_line = {
-                u'海关报关品名%s' % str(i+1): line.product_id.name,
+                u'海关报关品名%s' % str(i+1): '%s (%d' % (line.product_id.name, line.product_uom_qty),
                 u'配货信息%s' % str(i+1): line.product_id.name,
-                u'申报价值%s' % str(i+1): line.price_unit,
+                u'申报价值%s' % str(i+1): declared_value,
                 u'申报品数量%s' % str(i+1): line.product_uom_qty,
                 u'配货备注%s' % str(i+1): line.name,
             }

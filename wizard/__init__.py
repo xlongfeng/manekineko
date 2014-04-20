@@ -22,6 +22,7 @@
 import get_order
 import item_end
 import item_revise
+import item_sync
 import item_synchronize
 import sale_order_list_print
 

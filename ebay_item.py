@@ -181,8 +181,8 @@ class ebay_buyerrequirementdetails(osv.osv):
             ('Days_180', '180 days'),
             ],'Period'),
         # MaximumItemRequirements
-        'mir_maximum_item_count': fields.integer('MaximumItemCount'),
-        'mir_minimum_feedback_score': fields.integer('MinimumFeedbackScore'),
+        'mir_maximum_item_count': fields.integer('MaximumItemCount', help='As of Jan. 2013, the valid values for the US site are: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 50, and 75.'),
+        'mir_minimum_feedback_score': fields.integer('MinimumFeedbackScore', help='Currently, the valid values for the US site are: 0, 1, 2, 3, 4, and 5.'),
         # MaximumUnpaidItemStrikesInfo
         'muisi_count': fields.integer('Count'),
         'muisi_period': fields.selection([
@@ -203,7 +203,7 @@ class ebay_buyerrequirementdetails(osv.osv):
         'linked_paypal_account': False,
         'mbpv_count': 4,
         'mbpv_period': 'Days_180',
-        'mir_maximum_item_count': 25,
+        'mir_maximum_item_count': 5,
         'mir_minimum_feedback_score': 5,
         'muisi_count': 2,
         'muisi_period': 'Days_30',
@@ -568,7 +568,24 @@ Secondary value1 | Secondary value2 ...
         'ebay_user_id': fields.many2one('ebay.user', 'Account', domain=[('ownership','=',True)], ondelete='set null'),
     }
     
+    def _get_default_buyer_requirement_details_id(self, cr, uid, context=None):
+        res = self.pool.get('ebay.buyerrequirementdetails').search(cr, uid, [], context=context)
+        return res and res[0] or False
+    
+    def _get_default_return_policy_id(self, cr, uid, context=None):
+        res = self.pool.get('ebay.returnpolicy').search(cr, uid, [], context=context)
+        return res and res[0] or False
+    
+    def _get_default_shipping_details_id(self, cr, uid, context=None):
+        res = self.pool.get('ebay.shippingdetails').search(cr, uid, [], context=context)
+        return res and res[0] or False
+    
+    def _get_default_description_tmpl_id(self, cr, uid, context=None):
+        res = self.pool.get('ebay.item.description.template').search(cr, uid, [], context=context)
+        return res and res[0] or False
+    
     _defaults = {
+        'buyer_requirement_details_id': _get_default_buyer_requirement_details_id,
         'buy_it_now_price': 19.99,
         'condition_id': 1000,
         'cross_border_trade': 'North America',
@@ -582,13 +599,16 @@ Secondary value1 | Secondary value2 ...
         'listing_type': 'FixedPriceItem',
         'location': 'ShenZhen',
         'quantity': 99,
+        'return_policy_id': _get_default_return_policy_id,
+        'shipping_details_id': _get_default_shipping_details_id,
+        'uuid': lambda self, cr, uid, context: uuid.uuid1().hex,
         'variation_invalid': True,
         'variation_deleted': False,
         'start_price': 9.99,
         'state': 'Draft',
         'need_to_be_updated': True,
         'site': 'US',
-        'uuid': lambda self, cr, uid, context: uuid.uuid1().hex,
+        'description_tmpl_id': _get_default_description_tmpl_id,
     }
     
     def on_change_primary_category_id(self, cr, uid, id, primary_category_id, listing_type, context=None):
@@ -893,8 +913,9 @@ Secondary value1 | Secondary value2 ...
             
             buyer_requirement_details['MaximumItemRequirements'] = dict(
                 MaximumItemCount=brd.mir_maximum_item_count,
-                MinimumFeedbackScore=brd.mir_minimum_feedback_score,
             )
+            if brd.mir_minimum_feedback_score:
+                buyer_requirement_details['MaximumItemRequirements']['MinimumFeedbackScore'] = brd.mir_minimum_feedback_score
             
             buyer_requirement_details['MaximumUnpaidItemStrikesInfo'] = dict(
                 Count=brd.muisi_count,
@@ -1014,11 +1035,17 @@ Secondary value1 | Secondary value2 ...
             vals['item_id'] = api.response.reply.ItemID
             vals['start_time'] = api.response.reply.StartTime
             vals['need_to_be_updated'] = False
+            vals['bid_count'] = 0
+            vals['quantity_sold'] = 0
             vals['revise_date'] = fields.datetime.now()
             vals['state'] = 'Active'
             vals['response'] = api.response.json()
             item.write(vals)
             self.item_post_update(cr, uid, item, context=context)
+            varations = item.child_ids
+            if varations:
+                for varation in varations:
+                    varation.write({'quantity_sold': 0, 'state': item.state})
             
         return True
     
@@ -1178,7 +1205,6 @@ Secondary value1 | Secondary value2 ...
             vals['end_time'] = api.response.reply.EndTime
             vals['state'] = 'Ended'
             item.write(vals)
-            self.item_post_update(cr, uid, item, context=context)
             
         return True
         
