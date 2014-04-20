@@ -634,11 +634,10 @@ Secondary value1 | Secondary value2 ...
     def on_change_listing_type(self, cr, uid, id, primary_category_id, listing_type, context=None):
         return self.on_change_primary_category_id(cr, uid, id, primary_category_id, listing_type, context=context)
     
-    def on_change_variation_specifics_set(self, cr, uid, id, variation_specifics_set, parent_id, context=None):
+    def on_change_variation_specifics_set(self, cr, uid, id, variation_specifics_set, context=None):
         value = dict()
-        if parent_id:
-            specifics_set = split_str(variation_specifics_set, '\n')
-            value['name'] = '[%s]' % ']['.join(specifics_set)
+        specifics_set = split_str(variation_specifics_set, '\n')
+        value['name'] = '[%s]' % ']['.join(specifics_set)
         return {
             'value': value
         }
@@ -1203,8 +1202,12 @@ Secondary value1 | Secondary value2 ...
             vals = dict()
             vals['variation_modify_specific_name'] = ''
             vals['end_time'] = api.response.reply.EndTime
-            vals['state'] = 'Ended'
+            vals['state'] = 'Completed'
             item.write(vals)
+            varations = item.child_ids
+            if varations:
+                for varation in varations:
+                    varation.write(dict(state='Completed'))
             
         return True
         
