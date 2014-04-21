@@ -80,7 +80,7 @@ class ebay_sale_order_assign(osv.TransientModel):
         'count': _get_count,
     }
     
-    def action_assgin(self, cr, uid, ids, context=None):
+    def action_assign(self, cr, uid, ids, context=None):
         if context is None:
             context = {}
         record_ids = context and context.get('active_ids', False)
@@ -228,7 +228,7 @@ class ebay_sale_order_print(osv.TransientModel):
         }
         
         workbook = xlwt.Workbook(encoding='utf-8')
-        worksheet = workbook.add_sheet('Delivery Slip')
+        worksheet = workbook.add_sheet('4px Delivery Slip')
         
         for i, name in enumerate(headers):
             worksheet.write(0, i, name)
