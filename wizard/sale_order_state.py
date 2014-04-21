@@ -30,9 +30,68 @@ from openerp.osv import osv
 from openerp.osv import fields
 from openerp.tools.translate import _
 
-class ebay_sale_order_list_print(osv.TransientModel):
-    _name = 'ebay.sale.order.list.print'
-    _description = 'ebay sale order list print'
+from requests import exceptions
+import ebaysdk
+from ebaysdk.utils import getNodeText
+from ebaysdk.exception import ConnectionError, ConnectionResponseError
+
+class ebay_sale_order_confirm(osv.TransientModel):
+    _name = 'ebay.sale.order.confirm'
+    _description = 'ebay sale order confirm'
+    
+    _columns = {
+        'count': fields.integer('Item Record Count', readonly=True),
+    }
+    
+    def _get_count(self, cr, uid, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        return len(record_ids)
+    
+    _defaults = {
+        'count': _get_count,
+    }
+    
+    def action_confirm(self, cr, uid, ids, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        self.pool.get('ebay.sale.order').action_confirm(cr, uid, record_ids, context=None)
+        return {'type': 'ir.actions.act_window_close'}
+    
+ebay_sale_order_confirm()
+
+class ebay_sale_order_assign(osv.TransientModel):
+    _name = 'ebay.sale.order.assign'
+    _description = 'ebay sale order assign'
+    
+    _columns = {
+        'count': fields.integer('Item Record Count', readonly=True),
+    }
+    
+    def _get_count(self, cr, uid, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        return len(record_ids)
+    
+    _defaults = {
+        'count': _get_count,
+    }
+    
+    def action_assgin(self, cr, uid, ids, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        self.pool.get('ebay.sale.order').action_assign(cr, uid, record_ids, context=None)
+        return {'type': 'ir.actions.act_window_close'}
+    
+ebay_sale_order_assign()
+
+class ebay_sale_order_print(osv.TransientModel):
+    _name = 'ebay.sale.order.print'
+    _description = 'ebay sale order print'
     
     _columns = {
         'count': fields.integer('Item Record Count', readonly=True),
@@ -297,6 +356,99 @@ class ebay_sale_order_list_print(osv.TransientModel):
             'target': 'new',
         }
 
-ebay_sale_order_list_print()
+ebay_sale_order_print()
+
+class ebay_sale_order_send(osv.TransientModel):
+    _name = 'ebay.sale.order.send'
+    _description = 'ebay sale order send'
+    
+    _columns = {
+        'count': fields.integer('Item Record Count', readonly=True),
+        'exception': fields.text('Exception', readonly=True),
+        'state': fields.selection([
+            ('confirm', 'confirm'),
+            ('exception', 'exception')]),
+    }
+    
+    def _get_count(self, cr, uid, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        return len(record_ids)
+    
+    _defaults = {
+        'count': _get_count,
+        'exception': '',
+        'state': 'confirm',
+    }
+    
+    def action_send(self, cr, uid, ids, context=None):
+        if context is None:
+            context = {}
+        this = self.browse(cr, uid, ids)[0]
+        record_ids = context and context.get('active_ids', False)
+        
+        sale_order_obj = self.pool.get('sale.order')
+        stock_move_obj = self.pool.get('stock.move')
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
+        send_ids = list()
+        for order in self.pool.get('ebay.sale.order').browse(cr, uid, record_ids, context=context):
+            user = order.ebay_user_id
+            if order.state == 'assigned':
+                for sale_order in order.sale_order_ids:
+                    for picking in sale_order.picking_ids:
+                        move_line_ids = [move_line.id for move_line in picking.move_lines if move_line.state not in ['done','cancel']]
+                        stock_move_obj.action_done(cr, uid, move_line_ids, context=context)
+                # complete sale
+                call_data=dict(
+                    FeedbackInfo=dict(
+                        CommentText='Quick response and fast payment. Perfect! THANKS!!',
+                        CommentType='Positive',
+                        TargetUser=order.buyer_user_id,
+                    ),
+                    OrderID=order.order_id,
+                    Shipped="true",
+                )
+                call_name = 'CompleteSale'
+                api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+                try:
+                    api.execute(call_name, call_data)
+                except ConnectionError as e:
+                    res = str(e)
+                except ConnectionResponseError as e:
+                    res = str(e)
+                except exceptions.RequestException as e:
+                    res = str(e)
+                except exceptions.ConnectionError as e:
+                    res = str(e)
+                except exceptions.HTTPError as e:
+                    res = str(e)
+                except exceptions.URLRequired as e:
+                    res = str(e)
+                except exceptions.TooManyRedirects as e:
+                    res = str(e)
+                else:
+                    res = order.write({'state': 'sent'})
+                if res != True:
+                    break
+            
+        if res != True:
+            self.write(cr, uid, [this.id], {
+                                  'exception': res,
+                                  'state': 'exception'}, context=context)
+            return  {
+                'name': "Delivery",
+                'type': 'ir.actions.act_window',
+                'res_model': 'ebay.sale.order.send',
+                'view_mode': 'form',
+                'view_type': 'form',
+                'res_id': this.id,
+                'views': [(False, 'form')],
+                'target': 'new',
+            }
+        else:
+            return {'type': 'ir.actions.act_window_close'}
+    
+ebay_sale_order_send()
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

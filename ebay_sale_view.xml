@@ -2,15 +2,6 @@
 <openerp>
     <data>
         <menuitem id="menu_ebay_sale_management" name="Sales" parent="menu_ebay_top" sequence="50"/>
-    
-        <record id="action_ebay_sale_order_print" model="ir.actions.act_window">
-            <field name="type">ir.actions.act_window</field>
-            <field name="name">Print Delivery Slip</field>
-            <field name="res_model">ebay.sale.order.list.print</field>
-            <field name="view_type">form</field>
-            <field name="view_mode">form</field>
-            <field name="target">new</field>
-        </record>
         
         <record id="view_ebay_sale_form" model="ir.ui.view">
             <field name="name">ebay sale order tree form</field>
@@ -23,7 +14,7 @@
                         <button name="action_pending" states="draft" string="Pending" type="object"/>
                         <button name="action_assign" class="oe_highlight" states="confirmed" string="Check Availability" type="object"/>
                         <button name="action_send" class="oe_highlight" confirm="Are you sure want to delivery this order?" states="assigned" string="Delivery" type="object"/>
-                        <button name="%(action_ebay_sale_order_print)d" class="oe_highlight" states="assigned" string="Print Delivery Slip" type="action"/>
+                        <button name="%(action_ebay_sale_order_print)d" class="oe_highlight" states="assigned,sent,done" string="Print Delivery Slip" type="action"/>
                         <button name="action_done" confirm="Are you sure want to complete this order?"  states="sent" string="Done" type="object"/>
                         <button name="action_cancel" states="draft" confirm="Are you sure want to cancel this order?" string="Cancel" type="object"/>
                         <field name="state" widget="statusbar"/>

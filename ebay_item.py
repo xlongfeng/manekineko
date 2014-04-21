@@ -715,7 +715,6 @@ Secondary value1 | Secondary value2 ...
             'variation_specifics_set',
             'variation_deleted',
         ])
-        print vals.keys()
         if len(keywords & set(vals.keys())) > 0 or vals.get('variation_modify_specific_name', ''):
             vals['need_to_be_updated'] = True
         return super(ebay_item, self).write(cr, uid, ids, vals, context=context)

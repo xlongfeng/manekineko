@@ -3,11 +3,59 @@
     <data>
 
         <!-- wizard view -->
-        <record model="ir.ui.view" id="sale_order_list_print_view">
-            <field name="name">ebay sale order list print</field>
-            <field name="model">ebay.sale.order.list.print</field>
+	<record model="ir.ui.view" id="sale_order_confirm_view">
+            <field name="name">ebay sale order confirm</field>
+            <field name="model">ebay.sale.order.confirm</field>
             <field name="arch" type="xml">
-                <form string="ebay sale order list print" version="7.0">
+                <form string="ebay sale order confirm" version="7.0">
+		    <separator string="Confirm Orders"/>
+		    <group>
+			<field name="count"/>
+		    </group>
+		    <footer>
+			<button name="action_confirm" string="Confirm" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <act_window id="action_ebay_sale_order_confirm"
+            multi="True"
+            key2="client_action_multi" name="Confirm"
+            res_model="ebay.sale.order.confirm" src_model="ebay.sale.order"
+            view_mode="form" target="new" view_type="form" view_id="sale_order_confirm_view"/>
+	
+	<record model="ir.ui.view" id="sale_order_assign_view">
+            <field name="name">ebay sale order assign</field>
+            <field name="model">ebay.sale.order.assign</field>
+            <field name="arch" type="xml">
+                <form string="ebay sale order assign" version="7.0">
+		    <separator string="Assign Orders"/>
+		    <group>
+			<field name="count"/>
+		    </group>
+		    <footer>
+			<button name="action_assign" string="Assign" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <act_window id="action_ebay_sale_order_assign"
+            multi="True"
+            key2="client_action_multi" name="Assign"
+            res_model="ebay.sale.order.assign" src_model="ebay.sale.order"
+            view_mode="form" target="new" view_type="form" view_id="sale_order_assign_view"/>
+	
+        <record model="ir.ui.view" id="sale_order_print_view">
+            <field name="name">ebay sale order print</field>
+            <field name="model">ebay.sale.order.print</field>
+            <field name="arch" type="xml">
+                <form string="ebay sale order print" version="7.0">
 		    <separator string="Print Delivery Slip"/>
 		    <field name="state" invisible="1"/>
 		    <group states="option">
@@ -35,11 +83,42 @@
 	    </field>
 	</record>
 
-        <act_window id="sale_order_list_print"
+        <act_window id="action_ebay_sale_order_print"
             multi="True"
-            key2="client_action_multi" name="Print Delivery Slip"
-            res_model="ebay.sale.order.list.print" src_model="ebay.sale.order"
-            view_mode="form" target="new" view_type="form" view_id="sale_order_list_print_view"/>
+            key2="client_action_multi" name="Print"
+            res_model="ebay.sale.order.print" src_model="ebay.sale.order"
+            view_mode="form" target="new" view_type="form" view_id="sale_order_print_view"/>
+	
+	<record model="ir.ui.view" id="sale_order_send_view">
+            <field name="name">ebay sale order send</field>
+            <field name="model">ebay.sale.order.send</field>
+            <field name="arch" type="xml">
+                <form string="ebay sale order send" version="7.0">
+		    <separator string="Delivery Orders"/>
+		    <field name="state" invisible="1"/>
+		    <group states="confirm">
+			<field name="count"/>
+		    </group>
+		    <footer states="confirm">
+			<button name="action_send" string="Delivery" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		    <group states="exception">
+                        <field name="exception"/>
+                    </group>
+		    <footer states="exception">
+			<button special="cancel" string="Close" type="object"/>
+		    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <act_window id="action_ebay_sale_order_send"
+            multi="True"
+            key2="client_action_multi" name="Delivery"
+            res_model="ebay.sale.order.send" src_model="ebay.sale.order"
+            view_mode="form" target="new" view_type="form" view_id="sale_order_send_view"/>
 
     </data>
 </openerp>
