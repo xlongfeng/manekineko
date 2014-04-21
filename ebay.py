@@ -78,6 +78,19 @@ class ebay_ebay(osv.osv):
             date = (parser.parse(timestamp))
             return date.isoformat()
         
+    def format_errors(self, cr, uid, errors, context=None):
+        if type(errors) != list:
+            errors = [errors]
+        for error in errors:
+            print error.ErrorClassification, error.SeverityCode, error.ErrorCode, error.ShortMessage, error.LongMessage
+            if error.has_key('ErrorParameters'):
+                error_parameters = error.ErrorParameters
+                if type(error_parameters) != list:
+                    error_parameters = [error_parameters]
+                for error_parameter in error_parameters:
+                    print error_parameter.ParamID, error_parameter.value
+        return True
+        
     def dump_resp(self, cr, uid, api, context=None):
         print("ebay api dump")
 

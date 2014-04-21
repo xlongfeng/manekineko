@@ -253,6 +253,8 @@
                 <tree string="ebay item tree">
                     <field name="need_to_be_updated" invisible="1"/>
                     <button name="action_dummy" attrs="{'invisible': [('need_to_be_updated','=',False)]}" string="Edit" type="object" icon="gtk-edit" help=""/>
+                    <button name="action_dummy" attrs="{'invisible': [('need_to_be_updated','=',False)]}" string="Warning" type="object" icon="gtk-dialog-warning" help=""/>
+                    <button name="action_dummy" attrs="{'invisible': [('need_to_be_updated','=',False)]}" string="Error" type="object" icon="gtk-dialog-error" help=""/>
                     <field name="name"/>
                     <field name="variation"/>
                     <field name="listing_type"/>

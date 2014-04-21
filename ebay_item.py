@@ -36,11 +36,16 @@ from jinja2 import Template
 
 from openerp import SUPERUSER_ID
 from openerp import pooler, tools
-from openerp.osv import fields, osv
+from openerp.osv import fields, osv, orm
 from openerp.tools.translate import _
 from openerp.tools.float_utils import float_round
 
 import openerp.addons.decimal_precision as dp
+
+from requests import exceptions
+import ebaysdk
+from ebaysdk.utils import getNodeText
+from ebaysdk.exception import ConnectionError, ConnectionResponseError
 
 _logger = logging.getLogger(__name__)
 
@@ -555,6 +560,9 @@ Secondary value1 | Secondary value2 ...
         'update_date': fields.datetime('Update Date', readonly=True),
         'view_item_url': fields.function(_get_item_view_url, type='char', method="True", string='View Item'),
         'watch_count': fields.integer('Watch Count', readonly=True),
+        'severity_code_error': fields.boolean('Severity Code Error'),
+        'severity_code_warning': fields.boolean('Severity Code Warning'),
+        'error_message': fields.html('Error Message'),
         'response': fields.text('Response', readonly=True),
         # Additional Info
         'description_tmpl_id': fields.many2one('ebay.item.description.template', 'Template', ondelete='set null'),
@@ -654,6 +662,9 @@ Secondary value1 | Secondary value2 ...
             'state': 'Draft',
             'need_to_be_updated': True,
             'uuid': uuid.uuid1().hex,
+            'severity_code_error': False,
+            'severity_code_warning': False,
+            'error_message': '',
         })
 
         return super(ebay_item, self).copy(cr, uid, id, default, context)
@@ -1021,31 +1032,49 @@ Secondary value1 | Secondary value2 ...
             item_dict, auction = self.item_create(cr, uid, item, context=context)
             ebay_ebay_obj = self.pool.get('ebay.ebay')
             if item.item_id:
-                error_msg = 'Relist item: %s' % item.name
                 item_dict['Item']['ItemID'] = item.item_id
                 call_name = "RelistItem" if auction else "RelistFixedPriceItem"
             else:
-                error_msg = 'Add item: %s' % item.name
                 call_name = "AddItem" if auction else "AddFixedPriceItem"
-            api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
-            #TODO gbk warning message in resp
-            #ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
-            vals = dict()
-            vals['end_time'] = api.response.reply.EndTime
-            vals['item_id'] = api.response.reply.ItemID
-            vals['start_time'] = api.response.reply.StartTime
-            vals['need_to_be_updated'] = False
-            vals['bid_count'] = 0
-            vals['quantity_sold'] = 0
-            vals['revise_date'] = fields.datetime.now()
-            vals['state'] = 'Active'
-            vals['response'] = api.response.json()
-            item.write(vals)
-            self.item_post_update(cr, uid, item, context=context)
-            varations = item.child_ids
-            if varations:
-                for varation in varations:
-                    varation.write({'quantity_sold': 0, 'state': item.state})
+            api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+            try:
+                api.execute(call_name, item_dict)
+            except ConnectionError as e:
+                print e
+                ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
+                reply = api.response.reply
+                if reply.Ack in ('Failure', 'Warning'):
+                    ebay_ebay_obj.format_errors(cr, uid, reply.Errors, context=context)
+            except ConnectionResponseError as e:
+                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+            except exceptions.RequestException as e:
+                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+            except exceptions.ConnectionError as e:
+                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+            except exceptions.HTTPError as e:
+                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+            except exceptions.URLRequired as e:
+                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+            except exceptions.TooManyRedirects as e:
+                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+            else:
+                ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
+                vals = dict()
+                vals['end_time'] = api.response.reply.EndTime
+                vals['item_id'] = api.response.reply.ItemID
+                vals['start_time'] = api.response.reply.StartTime
+                vals['need_to_be_updated'] = False
+                vals['bid_count'] = 0
+                vals['quantity_sold'] = 0
+                vals['revise_date'] = fields.datetime.now()
+                vals['state'] = 'Active'
+                vals['response'] = api.response.json()
+                item.write(vals)
+                self.item_post_update(cr, uid, item, context=context)
+                varations = item.child_ids
+                if varations:
+                    for varation in varations:
+                        varation.write({'quantity_sold': 0, 'state': item.state})
             
         return True
     
