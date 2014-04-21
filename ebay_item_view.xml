@@ -194,7 +194,7 @@
                                 <group>
                                     <field name="description_tmpl_id"/>
                                 </group>
-                                <field name="description" widget="ckeditor"/>
+                                <field name="description" editor_height="480" style="margin-left:0px"/>
                             </page>
                             <page string="Product" style="min-height:480px" attrs="{'invisible': [('variation','=',True)]}">
                                 <field name="product_ids" editable="bottom">

@@ -25,7 +25,7 @@
     'version': '1.0',
     'author': 'xlongfeng',
     'category': 'Uncategorized',
-    'depends': ['base', 'base_import', 'sale_stock', 'web_ckeditor'],
+    'depends': ['base', 'base_import', 'sale_stock'],
     'demo': [],
     'description': """
 This is a module for managing ebay listings, orders and messages in OpenERP.
