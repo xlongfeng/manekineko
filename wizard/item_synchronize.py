@@ -159,19 +159,32 @@ class ebay_item_synchronize(osv.TransientModel):
                     
                     return status
                 
-                # find item sku first
-                if sku and sku.isdigit() and ebay_item_obj.exists(cr, uid, int(sku), context=context):
-                    print item.Title
-                    ebay_item = ebay_item_obj.browse(cr, uid, int(sku), context=context)
-                    ebay_item.write(update_item_status(item, ebay_item.child_ids))
-                    updated_count += 1
-                    continue
-                            
-                # find not sku item, base on item id, omit it
+                # find item id
                 if ebay_item_obj.search(cr, uid, [('item_id', '=', item.ItemID)], context=context):
-                    updated_count += 1
-                    continue
+                    item_id_exist = True
+                else:
+                    item_id_exist = False
                 
+                # find item sku
+                if sku and sku.isdigit() and ebay_item_obj.exists(cr, uid, int(sku), context=context):
+                    if item_id_exist:
+                        ebay_item = ebay_item_obj.browse(cr, uid, int(sku), context=context)
+                        ebay_item.write(update_item_status(item, ebay_item.child_ids))
+                        updated_count += 1
+                        continue
+                    else:
+                        # create a new one
+                        pass
+                else:
+                    if item_id_exist:
+                        # omit
+                        updated_count += 1
+                        continue
+                        pass
+                    else:
+                        # create a new one
+                        pass
+                    
                 # new listing
                 if not this.autocreate or selling_status.ListingStatus not in ('Active',):
                     continue
