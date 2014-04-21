@@ -44,6 +44,8 @@ import urllib2
 
 import json
 
+from jinja2 import Template
+
 sys.path.insert(0, '%s/ebaysdk-python/' % os.path.dirname(__file__))
 
 import ebaysdk
@@ -81,15 +83,39 @@ class ebay_ebay(osv.osv):
     def format_errors(self, cr, uid, errors, context=None):
         if type(errors) != list:
             errors = [errors]
+            
+        template = '''
+<h2>{{ error.ShortMessage }}</h2>
+<ul>
+  <li><b>{{ error.LongMessage }}</b></li>
+  <li>Error Classification: {{ error.ErrorClassification }}</li>
+  <li>Severity Code: {{ error.SeverityCode }}</li>
+  <li>Error Code: {{ error.ErrorCode }}</li>
+{% if error_parameters %}
+  <li>
+    <ul>
+    {% for error_parameter in error_parameters %}
+      <li>{{ error_parameter._ParamID }}: {{ error_parameter.Value }}</li>
+    {% endfor %}
+    </ul>
+  </li>
+{% endif %}
+</ul>
+        '''
+        e = ''
+        t = Template(template)
         for error in errors:
-            print error.ErrorClassification, error.SeverityCode, error.ErrorCode, error.ShortMessage, error.LongMessage
             if error.has_key('ErrorParameters'):
                 error_parameters = error.ErrorParameters
                 if type(error_parameters) != list:
                     error_parameters = [error_parameters]
-                for error_parameter in error_parameters:
-                    print error_parameter.ParamID, error_parameter.value
-        return True
+            else:
+                error_parameters = []
+            e += t.render(
+            error=error,
+            error_parameters=error_parameters,
+        )
+        return e
         
     def dump_resp(self, cr, uid, api, context=None):
         print("ebay api dump")

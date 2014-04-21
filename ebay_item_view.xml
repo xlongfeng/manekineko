@@ -233,6 +233,17 @@
                                     </group>
                                 </group>
                             </page>
+                            <page string="Errors" style="min-height:480px" attrs="{'invisible': [('parent_id','!=',False)]}">
+                                <group>
+                                    <group>
+                                    <field name="severity_code_error"/>
+                                    </group>
+                                    <group>
+                                        <field name="severity_code_warning"/>
+                                    </group>
+                                </group>
+                                <field name="error_message"/>
+                            </page>
                             <page string="Response" style="min-height:480px" attrs="{'invisible': [('parent_id','!=',False)]}">
                                 <field name="response"/>
                             </page>
@@ -252,9 +263,11 @@
             <field name="arch" type="xml">
                 <tree string="ebay item tree">
                     <field name="need_to_be_updated" invisible="1"/>
+                    <field name="severity_code_error" invisible="1"/>
+                    <field name="severity_code_warning" invisible="1"/>
                     <button name="action_dummy" attrs="{'invisible': [('need_to_be_updated','=',False)]}" string="Edit" type="object" icon="gtk-edit" help=""/>
-                    <button name="action_dummy" attrs="{'invisible': [('need_to_be_updated','=',False)]}" string="Warning" type="object" icon="gtk-dialog-warning" help=""/>
-                    <button name="action_dummy" attrs="{'invisible': [('need_to_be_updated','=',False)]}" string="Error" type="object" icon="gtk-dialog-error" help=""/>
+                    <button name="action_dummy" attrs="{'invisible': [('severity_code_error','=',False)]}" string="Error" type="object" icon="gtk-dialog-error" help=""/>
+                    <button name="action_dummy" attrs="{'invisible': [('severity_code_warning','=',False)]}" string="Warning" type="object" icon="gtk-dialog-warning" help=""/>
                     <field name="name"/>
                     <field name="variation"/>
                     <field name="listing_type"/>

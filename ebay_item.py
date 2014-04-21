@@ -560,9 +560,9 @@ Secondary value1 | Secondary value2 ...
         'update_date': fields.datetime('Update Date', readonly=True),
         'view_item_url': fields.function(_get_item_view_url, type='char', method="True", string='View Item'),
         'watch_count': fields.integer('Watch Count', readonly=True),
-        'severity_code_error': fields.boolean('Severity Code Error'),
-        'severity_code_warning': fields.boolean('Severity Code Warning'),
-        'error_message': fields.html('Error Message'),
+        'severity_code_error': fields.boolean('Severity Code Error', readonly=True),
+        'severity_code_warning': fields.boolean('Severity Code Warning', readonly=True),
+        'error_message': fields.html('Error Message', readonly=True),
         'response': fields.text('Response', readonly=True),
         # Additional Info
         'description_tmpl_id': fields.many2one('ebay.item.description.template', 'Template', ondelete='set null'),
@@ -1021,6 +1021,15 @@ Secondary value1 | Secondary value2 ...
             item.write(dict(response=api.response.json()))
             
         return True
+    
+    def api_execute_exception(self, cr, uid, ids, item, error, response=None, context=None):
+        vals = dict(
+            severity_code_error=True,
+            severity_code_warning=False,
+            error_message = error,
+            response = response,
+        )
+        item.write(vals)
         
     def action_upload(self, cr, uid, ids, context=None):
         for item in self.browse(cr, uid, ids, context=context):
@@ -1040,35 +1049,47 @@ Secondary value1 | Secondary value2 ...
             try:
                 api.execute(call_name, item_dict)
             except ConnectionError as e:
-                print e
-                ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
                 reply = api.response.reply
-                if reply.Ack in ('Failure', 'Warning'):
-                    ebay_ebay_obj.format_errors(cr, uid, reply.Errors, context=context)
+                error = ebay_ebay_obj.format_errors(cr, uid, reply.Errors, context=context)
+                self.api_execute_exception(cr, uid, ids, item, error, response=api.response.json(), context=context)
             except ConnectionResponseError as e:
-                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+                self.api_execute_exception(cr, uid, ids, item, e, context=context)
+                return False
             except exceptions.RequestException as e:
-                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+                self.api_execute_exception(cr, uid, ids, item, e, context=context)
+                return False
             except exceptions.ConnectionError as e:
-                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+                self.api_execute_exception(cr, uid, ids, item, e, context=context)
+                return False
             except exceptions.HTTPError as e:
-                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+                self.api_execute_exception(cr, uid, ids, item, e, context=context)
+                return False
             except exceptions.URLRequired as e:
-                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+                self.api_execute_exception(cr, uid, ids, item, e, context=context)
+                return False
             except exceptions.TooManyRedirects as e:
-                raise orm.except_orm(_('Warning!'), _('%s: %s' % (call_name, e)))
+                self.api_execute_exception(cr, uid, ids, item, e, context=context)
+                return False
             else:
-                ebay_ebay_obj.dump_resp(cr, uid, api, context=context)
+                reply = api.response.reply
                 vals = dict()
-                vals['end_time'] = api.response.reply.EndTime
-                vals['item_id'] = api.response.reply.ItemID
-                vals['start_time'] = api.response.reply.StartTime
+                vals['end_time'] = reply.EndTime
+                vals['item_id'] = reply.ItemID
+                vals['start_time'] = reply.StartTime
                 vals['need_to_be_updated'] = False
                 vals['bid_count'] = 0
                 vals['quantity_sold'] = 0
                 vals['revise_date'] = fields.datetime.now()
                 vals['state'] = 'Active'
                 vals['response'] = api.response.json()
+                if reply.Ack == 'Warning' and reply_has_key('Errors'):
+                    vals['severity_code_error'] = False
+                    vals['severity_code_warning'] = True
+                    vals['severity_code_warning'] = ebay_ebay_obj.format_errors(cr, uid, reply.Errors, context=context)
+                else:
+                    vals['severity_code_error'] = False
+                    vals['severity_code_warning'] = False
+                    vals['severity_code_warning'] = ''
                 item.write(vals)
                 self.item_post_update(cr, uid, item, context=context)
                 varations = item.child_ids
