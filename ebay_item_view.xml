@@ -251,6 +251,8 @@
             <field name="type">tree</field>
             <field name="arch" type="xml">
                 <tree string="ebay item tree">
+                    <field name="need_to_be_updated" invisible="1"/>
+                    <button name="action_dummy" attrs="{'invisible': [('need_to_be_updated','=',False)]}" string="Edit" type="object" icon="gtk-edit" help=""/>
                     <field name="name"/>
                     <field name="variation"/>
                     <field name="listing_type"/>

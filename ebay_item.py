@@ -695,6 +695,7 @@ Secondary value1 | Secondary value2 ...
             'payment_methods',
             'paypal_email_address',
             'payment_methods',
+            'eps_picture_ids',
             'postal_code',
             'primary_category_id',
             'quantity',
@@ -714,6 +715,7 @@ Secondary value1 | Secondary value2 ...
             'uuid',
             'variation_specifics_set',
             'variation_deleted',
+            'child_ids',
         ])
         if len(keywords & set(vals.keys())) > 0 or vals.get('variation_modify_specific_name', ''):
             vals['need_to_be_updated'] = True
@@ -1053,11 +1055,35 @@ Secondary value1 | Secondary value2 ...
             self.item_create(cr, uid, item, context=context)
             
         return True
+    
+    def is_updated(self, cr, uid, item, context=None):
+        revise_date = item.revise_date
+        if item.need_to_be_updated or not revise_date:
+            return True
+        
+        check_fields = (
+            'buyer_requirement_details_id',
+            'condition_description_id',
+            'primary_category_id',
+            'return_policy_id',
+            'secondary_category_id',
+            'shipping_details_id',
+            'description_tmpl_id',
+        )
+        
+        for field_name in check_fields:
+            field = item[field_name]
+            if field:
+                perm = field.perm_read()[0]
+                if perm.get('write_date') > revise_date:
+                    return True
+        
+        return False
         
     def action_revise(self, cr, uid, ids, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         for item in self.browse(cr, uid, ids, context=context):
-            if item.state not in ('Active',):
+            if item.state not in ('Active',) or not self.is_updated(cr, uid, item, context=context):
                 continue
             
             user = item.ebay_user_id
@@ -1209,6 +1235,9 @@ Secondary value1 | Secondary value2 ...
                     varation.write(dict(state='Completed'))
             
         return True
+    
+    def action_dummy(self, cr, uid, ids, context=None):
+        pass
         
 ebay_item()
 
