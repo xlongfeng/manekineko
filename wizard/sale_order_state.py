@@ -164,7 +164,7 @@ class ebay_sale_order_print(osv.TransientModel):
             #u'是否退件': '',
         }
         for i, line in enumerate(order_lines):
-            price_unit = price_unit if line.price_unit > 8 else 8
+            price_unit = line.price_unit if line.price_unit > 8 else 8
             declared_value = price_unit / line.product_uom_qty
             order_line = {
                 u'海关报关品名%s' % str(i+1): '%s (%d' % (line.product_id.name, line.product_uom_qty),
@@ -348,7 +348,7 @@ class ebay_sale_order_print(osv.TransientModel):
         return {
             'name': "Print Delivery Slip",
             'type': 'ir.actions.act_window',
-            'res_model': 'ebay.sale.order.list.print',
+            'res_model': 'ebay.sale.order.print',
             'view_mode': 'form',
             'view_type': 'form',
             'res_id': this.id,
