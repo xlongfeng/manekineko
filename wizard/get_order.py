@@ -79,6 +79,7 @@ class get_order(osv.TransientModel):
             context = {}
         this = self.browse(cr, uid, ids)[0]
         ebay_ebay_obj = self.pool.get('ebay.ebay')
+        ebay_item_obj = self.pool.get('ebay.item')
         res_partner_obj = self.pool.get('res.partner')
         ebay_sale_order_obj = self.pool.get('ebay.sale.order')
         ebay_sale_order_transaction_obj = self.pool.get('ebay.sale.order.transaction')
@@ -257,12 +258,12 @@ class get_order(osv.TransientModel):
                             vals['transaction_price'] = transaction.TransactionPrice.value
                             vals['item_id'] = transaction.Item.ItemID
                             sku = transaction.Item.SKU if transaction.Item.has_key('SKU') else ''
-                            if sku and sku.isdigit():
+                            if sku and sku.isdigit() and ebay_item_obj.exists(cr, uid, int(sku), context=context):
                                 vals['ebay_item_id'] = sku
                             name = transaction.Item.Title
                             if transaction.has_key('Variation'):
                                 _v = transaction.Variation
-                                if _v.has_key('SKU') and _v.SKU.isdigit():
+                                if _v.has_key('SKU') and _v.SKU.isdigit() and ebay_item_obj.exists(cr, uid, int(_v.SKU), context=context):
                                     vals['ebay_item_variation_id'] = _v.SKU
                                 name = _v.VariationTitle
                                 vals['view_item_url'] = _v.VariationViewItemURL if _v.has_key('VariationViewItemURL') else ''

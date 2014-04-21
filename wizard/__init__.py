@@ -20,11 +20,9 @@
 ##############################################################################
 
 import get_order
-import item_end
-import item_revise
-import item_sync
+import item_state
 import item_synchronize
-import sale_order_list_print
+import sale_order_state
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
 

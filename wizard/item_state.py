@@ -51,4 +51,58 @@ class ebay_item_sync(osv.TransientModel):
 
 ebay_item_sync()
 
+class ebay_item_revise(osv.TransientModel):
+    _name = 'ebay.item.revise'
+    _description = 'eBay item revise'
+    
+    _columns = {
+        'count': fields.integer('Item record count', readonly=True),
+    }
+    
+    def _get_count(self, cr, uid, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        return len(record_ids)
+    
+    _defaults = {
+        'count': _get_count,
+    }
+    
+    def action_revise(self, cr, uid, ids, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        self.pool.get('ebay.item').action_revise(cr, uid, record_ids, context=context)
+        return {'type': 'ir.actions.act_window_close'}
+
+ebay_item_revise()
+
+class ebay_item_end(osv.TransientModel):
+    _name = 'ebay.item.end'
+    _description = 'eBay item end'
+    
+    _columns = {
+        'count': fields.integer('Item record count', readonly=True),
+    }
+    
+    def _get_count(self, cr, uid, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        return len(record_ids)
+    
+    _defaults = {
+        'count': _get_count,
+    }
+    
+    def action_end(self, cr, uid, ids, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        self.pool.get('ebay.item').action_end_listing(cr, uid, record_ids, context=context)
+        return {'type': 'ir.actions.act_window_close'}
+
+ebay_item_end()
+
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
