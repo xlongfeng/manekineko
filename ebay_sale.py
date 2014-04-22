@@ -386,6 +386,35 @@ class ebay_sale_order_transaction(osv.osv):
         return {
             'value': value
         }
+    
+    def action_send_message(self, cr, uid, ids, context=None):
+        if len(ids) == 0:
+            return False
+        id = ids[0]
+        line = self.browse(cr, uid, id, context=context)
+        ctx = dict(context)
+        ctx.update({
+            'default_model': 'ebay.message',
+            'default_name': line.name,
+            'default_recipient_or_sender_id': line.order_id.buyer_user_id,
+            'default_item_id': line.item_id,
+            'default_title': line.name,
+            'default_current_price': line.transaction_price,
+            'default_question_type': 'General',
+            'default_last_modified_date': fields.datetime.now(),
+            'default_ebay_user_id': line.ebay_user_id.id,
+            'default_type': 'out',
+            'default_partner_id': line.order_partner_id.id,
+            'default_order_id': line.order_id.id
+            })
+        return {
+            'type': 'ir.actions.act_window',
+            'view_type': 'form',
+            'view_mode': 'form',
+            'res_model': 'ebay.message',
+            'target': 'new',
+            'context': ctx,
+        }
 
 ebay_sale_order_transaction()
 

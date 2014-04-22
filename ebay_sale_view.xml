@@ -96,6 +96,7 @@
                                 <field name="quantity_purchased"/>
                                 <field name="transaction_price"/>
                                 <field name="state" invisible="1"/>
+                                <button name="action_send_message" string="Send message to buyer" type="object" icon="terp-mail-message-new"/>
                             </tree>
                         </field>
                     </sheet>

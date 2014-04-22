@@ -163,61 +163,62 @@ class ebay_message_synchronize(osv.TransientModel):
                     error_msg = 'Get the messages for the specified user %s' % user.name
                     reply = ebay_ebay_obj.call(cr, uid, user, 'GetMemberMessages', call_data, error_msg, context=context).response.reply
                     has_more_items = reply.HasMoreItems == 'true'
-                    messages = reply.MemberMessage.MemberMessageExchange
-                    if type(messages) != list:
-                        messages = [messages]
-                    for message in messages:
-                        # find existing message
-                        domain = [('message_id', '=', message.Question.MessageID), ('ebay_user_id', '=', user.id)]
-                        ids = ebay_message_obj.search(cr, uid, domain, context=context)
-                        if ids:
-                            ebay_message = ebay_message_obj.browse(cr, uid, ids[0], context=context)
-                            last_modified_date = message.LastModifiedDate
-                            if ebay_message.last_modified_date != ebay_ebay_obj.to_default_format(cr, uid, last_modified_date):
-                                # last modified
+                    if reply.has_key('MemberMessage'):
+                        messages = reply.MemberMessage.MemberMessageExchange
+                        if type(messages) != list:
+                            messages = [messages]
+                        for message in messages:
+                            # find existing message
+                            domain = [('message_id', '=', message.Question.MessageID), ('ebay_user_id', '=', user.id)]
+                            ids = ebay_message_obj.search(cr, uid, domain, context=context)
+                            if ids:
+                                ebay_message = ebay_message_obj.browse(cr, uid, ids[0], context=context)
+                                last_modified_date = message.LastModifiedDate
+                                if ebay_message.last_modified_date != ebay_ebay_obj.to_default_format(cr, uid, last_modified_date):
+                                    # last modified
+                                    vals = dict(
+                                        last_modified_date=message.LastModifiedDate,
+                                        state=message.MessageStatus,
+                                    )
+                                    ebay_message.write(vals)
+                                    pass
+                            else:
+                                # create new message
                                 vals = dict(
+                                    name=message.Question.Subject,
+                                    body=message.Question.Body,
+                                    message_type=message.Question.MessageType,
+                                    question_type=message.Question.QuestionType,
+                                    recipient_or_sender_id=message.Question.SenderID,
+                                    sender_email=message.Question.SenderEmail,
+                                    message_id=message.Question.MessageID,
                                     last_modified_date=message.LastModifiedDate,
                                     state=message.MessageStatus,
+                                    ebay_user_id=user.id,
+                                    type='in',
                                 )
-                                ebay_message.write(vals)
-                                pass
-                        else:
-                            # create new message
-                            vals = dict(
-                                name=message.Question.Subject,
-                                body=message.Question.Body,
-                                message_type=message.Question.MessageType,
-                                question_type=message.Question.QuestionType,
-                                recipient_or_sender_id=message.Question.SenderID,
-                                sender_email=message.Question.SenderEmail,
-                                message_id=message.Question.MessageID,
-                                last_modified_date=message.LastModifiedDate,
-                                state=message.MessageStatus,
-                                ebay_user_id=user.id,
-                                type='in',
-                            )
-                            if message.has_key('Item'):
-                                vals['item_id'] = message.Item.ItemID
-                                vals['title'] = message.Item.Title
-                                vals['end_time'] = message.Item.ListingDetails.EndTime
-                                vals['start_time'] = message.Item.ListingDetails.StartTime
-                                vals['current_price'] = message.Item.SellingStatus.CurrentPrice.value
-                            ebay_message_id = ebay_message_obj.create(cr, uid, vals, context=context)
-                            
-                            message_medias = []
-                            if message.has_key('MessageMedia'):
-                                message_medias.extend(message.MessageMedia if type(message.MessageMedia) == list else [message.MessageMedia])
-                            if message.Question.has_key('MessageMedia'):
-                                message_medias.extend(message.Question.MessageMedia if type(message.Question.MessageMedia) == list else [message.Question.MessageMedia])
-                            if message_medias:
-                                for media in message_medias:
-                                    vals = dict(
-                                        name=media.MediaName,
-                                        image=base64.encodestring(urllib2.urlopen(media.MediaURL).read()),
-                                        full_url=media.MediaURL,
-                                        message_id=ebay_message_id,
-                                    )
-                                    ebay_message_media_obj.create(cr, uid, vals, context=context)
+                                if message.has_key('Item'):
+                                    vals['item_id'] = message.Item.ItemID
+                                    vals['title'] = message.Item.Title
+                                    vals['end_time'] = message.Item.ListingDetails.EndTime
+                                    vals['start_time'] = message.Item.ListingDetails.StartTime
+                                    vals['current_price'] = message.Item.SellingStatus.CurrentPrice.value
+                                ebay_message_id = ebay_message_obj.create(cr, uid, vals, context=context)
+                                
+                                message_medias = []
+                                if message.has_key('MessageMedia'):
+                                    message_medias.extend(message.MessageMedia if type(message.MessageMedia) == list else [message.MessageMedia])
+                                if message.Question.has_key('MessageMedia'):
+                                    message_medias.extend(message.Question.MessageMedia if type(message.Question.MessageMedia) == list else [message.Question.MessageMedia])
+                                if message_medias:
+                                    for media in message_medias:
+                                        vals = dict(
+                                            name=media.MediaName,
+                                            image=base64.encodestring(urllib2.urlopen(media.MediaURL).read()),
+                                            full_url=media.MediaURL,
+                                            message_id=ebay_message_id,
+                                        )
+                                        ebay_message_media_obj.create(cr, uid, vals, context=context)
     
                     page_number = page_number + 1
                     
@@ -328,7 +329,8 @@ class ebay_message(osv.osv):
             item_id = record.item_id
             last_modified_date = record.last_modified_date
             if ebay_user_id and item_id:
-                domain = [('recipient_or_sender_id', '=', ebay_user_id), ('item_id', '=', item_id), ('last_modified_date', '<', last_modified_date)]
+                #domain = [('recipient_or_sender_id', '=', ebay_user_id), ('item_id', '=', item_id), ('last_modified_date', '<', last_modified_date)]
+                domain = [('recipient_or_sender_id', '=', ebay_user_id), ('item_id', '=', item_id)]
                 ids = ebay_message_obj.search(cr, uid, domain, context=context)
                 if ids:
                     chat = ''
@@ -343,7 +345,7 @@ class ebay_message(osv.osv):
 
     _columns = {
         'name': fields.char('Subject', required=True),
-        'body': fields.text('Body'),
+        'body': fields.text('Body', required=True),
         'message_type': fields.selection([
             ('All', 'All'),
             ('AskSellerQuestion', 'AskSellerQuestion'),
@@ -367,10 +369,10 @@ class ebay_message(osv.osv):
             ('Payment', 'Payment'),
             ('Shipping', 'Shipping'),
         ], 'QuestionType'),
-        'recipient_or_sender_id': fields.char('Recipient / Sender'),
+        'recipient_or_sender_id': fields.char('Recipient / Sender', readonly=True),
         'sender_email': fields.char('Sender Email', size=240),
         
-        'item_id': fields.char('Item ID', size=38),
+        'item_id': fields.char('Item ID', size=38, readonly=True),
         'title': fields.char('Title', readonly=True),
         'end_time': fields.datetime('End Time', readonly=True),
         'start_time': fields.datetime('Start Time', readonly=True),
@@ -378,6 +380,8 @@ class ebay_message(osv.osv):
         
         'media_ids': fields.one2many('ebay.message.media', 'message_id', 'Media'),
         'message_id': fields.char('MessageID', help='ID that uniquely identifies a message for a given user.'),
+        'parent_message_id': fields.char('Parent MessageID', help='ID number of the question to which this message is responding.'),
+        
         'last_modified_date': fields.datetime('LastModifiedDate', readonly=True),
         'state': fields.selection([
             ('Draft', 'Draft'),
@@ -404,12 +408,145 @@ class ebay_message(osv.osv):
     _order = 'last_modified_date desc'
     
     def action_reply(self, cr, uid, ids, context=None):
-        for msg in self.browse(cr, uid, ids, context=context):
-            pass
+        if len(ids) == 0:
+            return False
+        id = ids[0]
+        msg = self.browse(cr, uid, id, context=context)
+        ctx = dict(context)
+        if msg.question_type != 'None':
+            default_name = 'RE: %s about %s' % (msg.question_type, msg.title if msg.title else msg.name)
+        else:
+            default_name = 'RE: %s' % msg.name
+        ctx.update({
+            'default_model': 'ebay.message',
+            'default_name': default_name,
+            'default_recipient_or_sender_id': msg.recipient_or_sender_id,
+            'default_item_id': msg.item_id,
+            'default_title': msg.title,
+            'default_end_time': msg.end_time,
+            'default_start_time': msg.start_time,
+            'default_current_price': msg.current_price,
+            'default_question_type': msg.question_type,
+            'default_parent_message_id': msg.message_id,
+            'default_last_modified_date': fields.datetime.now(),
+            'default_ebay_user_id': msg.ebay_user_id.id,
+            'default_type': 'out',
+            })
+        if msg.partner_id:
+            ctx['default_partner_id'] = msg.partner_id.id
+        if msg.partner_id:
+            ctx['default_order_id'] = msg.order_id.id
+        return {
+            'type': 'ir.actions.act_window',
+            'view_type': 'form',
+            'view_mode': 'form',
+            'res_model': 'ebay.message',
+            'target': 'new',
+            'context': ctx,
+        }
     
     def action_send(self, cr, uid, ids, context=None):
-        for msg in self.browse(cr, uid, ids, context=context):
-            pass
+        if len(ids) == 0:
+            return False
+        id = ids[0]
+        msg = self.browse(cr, uid, id, context=context)
+        
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
+        user = msg.ebay_user_id
+        
+        message_media = []
+        if msg.media_ids:
+            for media in msg.media_ids:
+                if not media.full_url:
+                    image = io.BytesIO(base64.b64decode(media.image))
+                    call_data = dict()
+                    call_data['PictureSystemVersion'] = 2
+                    call_name = 'UploadSiteHostedPictures'
+                    api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+                    try:
+                        api.execute(call_name, call_data, files=dict(image=image))
+                    except ConnectionError as e:
+                        raise orm.except_orm(_('Warning!'), e)
+                    except ConnectionResponseError as e:
+                        raise orm.except_orm(_('Warning!'), e)
+                    except exceptions.RequestException as e:
+                        raise orm.except_orm(_('Warning!'), e)
+                    except exceptions.ConnectionError as e:
+                        raise orm.except_orm(_('Warning!'), e)
+                    except exceptions.HTTPError as e:
+                        raise orm.except_orm(_('Warning!'), e)
+                    except exceptions.URLRequired as e:
+                        raise orm.except_orm(_('Warning!'), e)
+                    except exceptions.TooManyRedirects as e:
+                        raise orm.except_orm(_('Warning!'), e)
+                    else:
+                        reply = api.response.reply
+                        site_hosted_picture_details = reply.SiteHostedPictureDetails
+                        vals = dict()
+                        vals['full_url'] = site_hosted_picture_details.FullURL
+                        vals['picture_format'] = site_hosted_picture_details.PictureFormat
+                        vals['use_by_date'] = site_hosted_picture_details.UseByDate
+                        media.write(vals)
+                        media.refresh()
+                        
+                message_media.append(dict(
+                    MediaName=media.name,
+                    MediaURL=media.full_url,
+                ))
+        
+        item_id = msg.item_id
+        
+        if msg.parent_message_id:
+            call_data=dict(
+                MemberMessage=dict(
+                    Body='<![CDATA[%s]]>' % msg.body,
+                    ParentMessageID=msg.parent_message_id,
+                    QuestionType=msg.question_type,
+                    RecipientID=msg.recipient_or_sender_id,
+                    Subject='<![CDATA[%s]]>' % msg.name,
+                )
+            )
+            if item_id:
+                call_data['ItemID'] = item_id
+            if message_media:
+                call_data['MemberMessage']['MessageMedia'] = message_media if len(message_media) > 1 else message_media[0]
+            call_name = 'AddMemberMessageRTQ'
+        else:
+            call_data=dict(
+                ItemID=item_id,
+                MemberMessage=dict(
+                    Body='<![CDATA[%s]]>' % msg.body,
+                    QuestionType=msg.question_type,
+                    RecipientID=msg.recipient_or_sender_id,
+                    Subject='<![CDATA[%s]]>' % msg.name,
+                )
+            )
+            if message_media:
+                call_data['MemberMessage']['MessageMedia'] = message_media if len(message_media) > 1 else message_media[0]
+            call_name = 'AddMemberMessageAAQToPartner'
+        
+        api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+        try:
+            api.execute(call_name, call_data)
+        except ConnectionError as e:
+            raise orm.except_orm(_('Warning!'), e)
+        except ConnectionResponseError as e:
+            raise orm.except_orm(_('Warning!'), e)
+        except exceptions.RequestException as e:
+            raise orm.except_orm(_('Warning!'), e)
+        except exceptions.ConnectionError as e:
+            raise orm.except_orm(_('Warning!'), e)
+        except exceptions.HTTPError as e:
+            raise orm.except_orm(_('Warning!'), e)
+        except exceptions.URLRequired as e:
+            raise orm.except_orm(_('Warning!'), e)
+        except exceptions.TooManyRedirects as e:
+            raise orm.except_orm(_('Warning!'), e)
+        else:
+            return msg.write(dict(
+                last_modified_date=fields.datetime.now(),
+                state='Sent',
+            ))
         
     def send_after_service_message(self, cr, uid, ebay_sale_order, duration, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
@@ -435,9 +572,8 @@ class ebay_message(osv.osv):
         )
         
         item_id = ebay_sale_order.transactions[0].item_id
-        subject = 'Shipping of %s' % ebay_sale_order.transactions[0].name
+        subject = 'Shipping about %s' % ebay_sale_order.transactions[0].name
         question_type = 'Shipping'
-        last_modified_date=fields.datetime.now(),
         
         call_data=dict(
             ItemID=item_id,
@@ -445,8 +581,7 @@ class ebay_message(osv.osv):
                 Body='<![CDATA[%s]]>' % body,
                 QuestionType=question_type,
                 RecipientID=ebay_sale_order.buyer_user_id,
-                Subject=subject,
-                last_modified_date=last_modified_date,
+                Subject='<![CDATA[%s]]>' % subject,
             )
         )
         call_name = 'AddMemberMessageAAQToPartner'
@@ -479,7 +614,7 @@ class ebay_message(osv.osv):
                 recipient_or_sender_id=ebay_sale_order.buyer_user_id,
                 item_id=ebay_sale_order.transactions[0].item_id,
                 title=ebay_sale_order.transactions[0].name,
-                last_modified_date=last_modified_date,
+                last_modified_date=fields.datetime.now(),
                 state='Sent',
                 type='out',
                 partner_id=ebay_sale_order.partner_id.id,
