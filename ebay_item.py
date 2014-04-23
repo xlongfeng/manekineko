@@ -633,8 +633,10 @@ Secondary value1 | Secondary value2 ...
             value['listing_duration'] = 'GTC'
         if listing_type == 'Chinese' or not category.variations_enabled:
             value['variation_invalid'] = True
+            value['variation'] = False
         else:
             value['variation_invalid'] = False
+            value['variation'] = False
         return {
             'value': value
         }
