@@ -83,7 +83,7 @@
             <field name="view_type">form</field>
             <field name="view_mode">tree,form</field>
         </record>
-        <menuitem id="menu_photobucket_consumer" action="action_photobucket_consumer_tree" sequence="20" parent="menu_photobucket"/>
+        <menuitem id="menu_photobucket_consumer" action="action_photobucket_consumer_tree" sequence="20" parent="menu_photobucket" groups="ebay.group_ebay_manager"/>
         
         <record model="ir.ui.view" id="photobucket_media_form_view">
             <field name="name">photobucket media form</field>

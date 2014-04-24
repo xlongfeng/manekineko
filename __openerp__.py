@@ -31,6 +31,7 @@
 This is a module for managing ebay listings, orders and messages in OpenERP.
     """,
     'data': [
+        'security/ebay_security.xml',
         'ebay_view.xml',
         'ebay_seller_list_view.xml',
         'ebay_user_view.xml',
@@ -43,6 +44,7 @@ This is a module for managing ebay listings, orders and messages in OpenERP.
         'wizard/get_order_view.xml',
         'wizard/item_state_view.xml',
         'wizard/item_synchronize_view.xml',
+        'security/ir.model.access.csv',
     ],
     'test': [
     ],

@@ -40,7 +40,7 @@
             id="menu_ebay_get_order_view"
             parent="menu_ebay_sale_management"
             sequence="40"
-            icon="STOCK_CONVERT"/>
+            icon="STOCK_CONVERT" groups="ebay.group_ebay_manager"/>
 
     </data>
 </openerp>

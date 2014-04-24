@@ -28,7 +28,7 @@
             multi="True"
             key2="client_action_multi" name="Sync"
             res_model="ebay.item.sync" src_model="ebay.item"
-            view_mode="form" target="new" view_type="form" view_id="ebay_item_sync_view"/>
+            view_mode="form" target="new" view_type="form" view_id="ebay_item_sync_view" groups="ebay.group_ebay_manager"/>
 	
 	<record model="ir.ui.view" id="ebay_item_revise_view">
             <field name="name">ebay item revise</field>
@@ -55,7 +55,7 @@
             multi="True"
             key2="client_action_multi" name="Revise"
             res_model="ebay.item.revise" src_model="ebay.item"
-            view_mode="form" target="new" view_type="form" view_id="ebay_item_revise_view"/>
+            view_mode="form" target="new" view_type="form" view_id="ebay_item_revise_view" groups="ebay.group_ebay_manager"/>
 	
 	<record model="ir.ui.view" id="ebay_item_end_view">
             <field name="name">ebay item end</field>
@@ -82,7 +82,7 @@
             multi="True"
             key2="client_action_multi" name="End"
             res_model="ebay.item.end" src_model="ebay.item"
-            view_mode="form" target="new" view_type="form" view_id="ebay_item_end_view"/>
+            view_mode="form" target="new" view_type="form" view_id="ebay_item_end_view" groups="ebay.group_ebay_manager"/>
 
     </data>
 </openerp>

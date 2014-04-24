@@ -50,7 +50,7 @@
             action="action_ebay_item_synchronize_view"
             id="menu_ebay_item_synchronize_view"
             parent="menu_ebay_listing_activity"
-            sequence="25"/>
+            sequence="25" groups="ebay.group_ebay_manager"/>
 
     </data>
 </openerp>

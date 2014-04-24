@@ -9,8 +9,8 @@
             <field name="arch" type="xml">
                 <form string="eBay Message" create="false" version="7.0">
                     <header>
-                        <button class="oe_highlight" name="action_reply" states="Unanswered,Answered" string="Reply" type="object"/>
-                        <button class="oe_highlight" name="action_send" states="Draft" string="Send" type="object"/>
+                        <button class="oe_highlight" name="action_reply" states="Unanswered,Answered" string="Reply" type="object" groups="ebay.group_ebay_manager"/>
+                        <button class="oe_highlight" name="action_send" states="Draft" string="Send" type="object" groups="ebay.group_ebay_manager"/>
                         <field name="state" widget="statusbar"/>
                     </header>
                     <sheet>
@@ -183,7 +183,7 @@
             <field name="view_mode">form</field>
             <field name="target">new</field>
         </record>
-        <menuitem id="menu_ebay_message_synchronize" action="action_ebay_get_message_view" sequence="40" parent="menu_ebay_message_management"/>
+        <menuitem id="menu_ebay_message_synchronize" action="action_ebay_get_message_view" sequence="40" parent="menu_ebay_message_management" groups="ebay.group_ebay_manager"/>
 
     </data>
 </openerp>
