@@ -44,10 +44,11 @@ import urllib2
 
 import json
 
+from ebay_utils import *
 import ebaysdk
-from ebaysdk.utils import getNodeText
+from ebaysdk.parallel import Parallel
 from ebaysdk.exception import ConnectionError, ConnectionResponseError
-from ebaysdk.trading import Connection as Trading
+from requests.exceptions import RequestException
 
 _logger = logging.getLogger(__name__)
 
@@ -94,18 +95,53 @@ class ebay_seller_list(osv.osv):
     
     _order = 'average_monthly_sales desc'
     
-    def get_seller_list(self, cr, uid, user, context=None):
-        last_updated = user.last_updated
-        if last_updated:
-            now_time = datetime.now()
-            last_updated = datetime.strptime(last_updated, tools.DEFAULT_SERVER_DATETIME_FORMAT)
-            delta = (now_time - last_updated).days
-            if delta < 7:
-                return True
-        cr.execute('delete from ebay_seller_list \
-                        where user_id=%s', (user.id,))
-        monthly_sales = 0.0
+    def create_items(self, cr, uid, user, items, context=None):
+        monthly_sales = 0
         monthly_sales_volume = 0
+        for item in ebay_repeatable_list(items):
+            if item.ListingType not in ('FixedPriceItem', 'StoresFixedPrice'):
+                continue
+            vals = dict()
+            vals['buy_it_now_price'] = float(item.BuyItNowPrice.value)
+            vals['currency'] = item.Currency
+            vals['hit_count'] = item.HitCount if item.has_key('HitCount') else 0
+            vals['item_id'] = item.ItemID
+            
+            listing_details = item.ListingDetails
+            vals['end_time'] = listing_details.EndTime
+            start_time = listing_details.StartTime
+            vals['start_time'] = start_time
+            vals['view_item_url'] = listing_details.ViewItemURL
+            
+            vals['quantity'] = int(item.Quantity)
+            
+            selling_status = item.SellingStatus
+            start_price = float(item.StartPrice.value)
+            quantity_sold = int(selling_status.QuantitySold)
+            vals['quantity_sold'] = quantity_sold
+            vals['start_price'] = start_price
+            
+            vals['name'] = item.Title
+            vals['watch_count'] = item.WatchCount if item.has_key('WatchCount') else 0
+            vals['user_id'] = user.id
+            
+            delta_days = (time_now - start_time).days
+            if delta_days <= 0:
+                delta_days = 1
+            average_monthly_sales = quantity_sold * 30 / delta_days
+            monthly_sales += start_price * average_monthly_sales
+            monthly_sales_volume += average_monthly_sales
+            
+            vals['average_monthly_sales'] = average_monthly_sales
+            
+            if item.has_key('PictureDetails') and  item.PictureDetails.has_key('PictureURL'):
+                picture_url = item.PictureDetails.PictureURL
+                vals['picture'] = '<img src="%s" width="500"/>' % ebay_repeatable_list(picture_url)[0]
+            
+            self.create(cr, uid, vals, context=context)
+        return monthly_sales, monthly_sales_volume
+    
+    def get_seller_list_call(self, cr, uid, user, call_param, parallel=None, context=None):
         output_selector = [
             'HasMoreItems',
             'ItemArray.Item.BuyItNowPrice',
@@ -124,15 +160,61 @@ class ebay_seller_list(osv.osv):
             'ItemArray.Item.Title',
             'ItemsPerPage',
             'PageNumber',
+            'PaginationResult',
             'ReturnedItemCountActual',
         ]
+        call_name = 'GetSellerList'
+        call_data=dict()
+        call_data['EndTimeFrom'] = call_param['end_time_from']
+        call_data['EndTimeTo'] = call_param['end_time_to']
+        call_data['IncludeWatchCount'] = True
+        call_data['Pagination'] = {
+            'EntriesPerPage': call_param['entries_per_page'],
+            'PageNumber': call_param['page_number'],
+        }
+        call_data['UserID'] = user.name
+        call_data['DetailLevel'] = 'ReturnAll'
+        call_data['OutputSelector'] = output_selector
+        
+        api = self.pool.get('ebay.ebay').trading(cr, uid, user, call_name, parallel=parallel, context=context)
+        return api.execute(call_name, call_data)
+    
+    def get_seller_list(self, cr, uid, user, context=None):
+        last_updated = user.last_updated
+        if last_updated:
+            now_time = datetime.now()
+            last_updated = datetime.strptime(last_updated, tools.DEFAULT_SERVER_DATETIME_FORMAT)
+            delta = (now_time - last_updated).days
+            if delta < 7 and False:
+                return True
+        cr.execute('delete from ebay_seller_list \
+                        where user_id=%s', (user.id,))
+        monthly_sales = 0.0
+        monthly_sales_volume = 0
+        
         # TODO
         time_now = datetime.now()
         time_now_pdt = datetime.now(pytz.timezone('US/Pacific'))
         end_time_from = time_now_pdt.isoformat()
         end_time_to = (time_now_pdt + timedelta(30)).isoformat()
-        entries_per_page = 100
+        entries_per_page = 10
         page_number = 1
+        
+        call_param = dict(
+            end_time_from=end_time_from,
+            end_time_to=end_time_to,
+            entries_per_page=entries_per_page,
+            page_number=page_number
+        )
+        
+        reply = self.get_seller_list_call(cr, uid, user, call_param, context=context).reply
+        total_number_of_pages = int(reply.PaginationResult.TotalNumberOfPages)
+        print 'x' * 30, total_number_of_pages
+        
+        if total_number_of_pages == 0:
+            return
+        
+        '''
         has_more_items = True
         while has_more_items:
             call_data=dict()
@@ -146,37 +228,17 @@ class ebay_seller_list(osv.osv):
             call_data['UserID'] = user.name
             call_data['DetailLevel'] = 'ReturnAll'
             call_data['OutputSelector'] = output_selector
-            call_name = 'GetSellerList'
-            api = self.pool.get('ebay.ebay').trading(cr, uid, user, call_name, context=context)
             try:
                 api.execute(call_name, call_data)
                 reply = api.response.reply
-            except ConnectionError as e:
-                _logger.warning('%s -- %s' % (call_name, e))
-                return False
-            except ConnectionResponseError as e:
-                _logger.warning('%s -- %s' % (call_name, e))
-                return False
-            except exceptions.RequestException as e:
-                _logger.warning('%s -- %s' % (call_name, e))
-                return False
-            except exceptions.ConnectionError as e:
-                _logger.warning('%s -- %s' % (call_name, e))
-            except exceptions.HTTPError as e:
-                _logger.warning('%s -- %s' % (call_name, e))
-                return False
-            except exceptions.URLRequired as e:
-                _logger.warning('%s -- %s' % (call_name, e))
-                return False
-            except exceptions.TooManyRedirects as e:
-                _logger.warning('%s -- %s' % (call_name, e))
-                return False
+            except ConnectionError:
+                raise
+            except (ConnectionResponseError, RequestException):
+                raise
             else:
                 has_more_items = reply.HasMoreItems == 'true'
                 items = reply.ItemArray.Item
-                if type(items) != list:
-                    items = [items]
-                for item in items:
+                for item in ebay_repeatable_list(items):
                     if item.ListingType not in ('FixedPriceItem', 'StoresFixedPrice'):
                         continue
                     vals = dict()
@@ -214,13 +276,11 @@ class ebay_seller_list(osv.osv):
                     
                     if item.has_key('PictureDetails') and  item.PictureDetails.has_key('PictureURL'):
                         picture_url = item.PictureDetails.PictureURL
-                        if type(picture_url) != list:
-                            vals['picture'] = '<img src="%s" width="500"/>' % picture_url
-                        else:
-                            vals['picture'] = '<img src="%s" width="500"/>' % picture_url[0]
+                        vals['picture'] = '<img src="%s" width="500"/>' % ebay_repeatable_list(picture_url)[0]
                     
                     self.create(cr, uid, vals, context=context)
                 page_number = page_number + 1
+        '''
             
         return user.write(dict(
             last_updated=fields.datetime.now(),

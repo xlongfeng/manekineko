@@ -22,39 +22,29 @@
 import os
 import sys
 import logging
-from datetime import datetime, timedelta, tzinfo
-import dateutil.parser as parser
-from dateutil.relativedelta import relativedelta
-from operator import itemgetter
+from datetime import datetime, timedelta
 import time
-import pytz
 
-from requests import exceptions
-
-from openerp import SUPERUSER_ID
 from openerp import pooler, tools
 from openerp.osv import fields, osv, orm
 from openerp.tools.translate import _
-from openerp.tools.float_utils import float_round
-
-import openerp.addons.decimal_precision as dp
 
 import base64
 import urllib2
-
 import json
 
 from jinja2 import Template
 
 sys.path.insert(0, '%s/ebaysdk-python/' % os.path.dirname(__file__))
 
+from ebay_utils import *
 import ebaysdk
-from ebaysdk.utils import getNodeText
-from ebaysdk.exception import ConnectionError, ConnectionResponseError
 from ebaysdk.trading import Connection as Trading
+from ebaysdk.exception import ConnectionError, ConnectionResponseError
+from requests.exceptions import RequestException
 
 _logger = logging.getLogger(__name__)
-
+    
 class ebay_ebay(osv.osv):
     _name = "ebay.ebay"
     _description = "eBay"
@@ -176,8 +166,8 @@ class ebay_ebay(osv.osv):
             
         return ebay_user_obj.browse(cr, uid, ids[0], context=context)
     
-    def trading(self, cr, uid, user, call_name, context=None):
-        api = Trading(domain=self.pool.get('ebay.ebay').get_ebay_api_domain(cr, uid, user.sale_site, user.sandbox))
+    def trading(self, cr, uid, user, call_name, parallel=None, context=None):
+        api = Trading(domain=self.pool.get('ebay.ebay').get_ebay_api_domain(cr, uid, user.sale_site, user.sandbox), parallel=parallel)
             
         if user.ownership:
             api.config.set('appid', user.app_id, force=True)
@@ -205,15 +195,7 @@ class ebay_ebay(osv.osv):
             raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
         except ConnectionResponseError as e:
             raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
-        except exceptions.RequestException as e:
-            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
-        except exceptions.ConnectionError as e:
-            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
-        except exceptions.HTTPError as e:
-            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
-        except exceptions.URLRequired as e:
-            raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
-        except exceptions.TooManyRedirects as e:
+        except RequestException as e:
             raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
         else:
             return api
