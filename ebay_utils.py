@@ -54,7 +54,7 @@ def ebay_strptime(timestamp):
     if type(timestamp) == datetime:
         return timestamp
     else:
-        return datetime.strptime(timestamp, tools.DEFAULT_SERVER_DATETIME_FORMAT)
+        return datetime.strptime(timestamp.partition('.')[0], tools.DEFAULT_SERVER_DATETIME_FORMAT)
     
 def ebay_dump(api):
     if api.warnings():

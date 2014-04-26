@@ -134,7 +134,7 @@ class ebay_sale_order(osv.osv):
             ('7', '7 days'),
             ('15', '15 days'),
             ('25', '25 days'),
-        ], 'After Service Duration', readonly=True),
+        ], 'Duration', readonly=True, help='After Service Duration'),
         'sale_order_ids': fields.one2many('sale.order', 'ebay_sale_order_id', 'Sale Orders', readonly=True),
     }
     

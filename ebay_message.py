@@ -131,7 +131,7 @@ class ebay_message_synchronize(osv.TransientModel):
                     shipped_time = datetime.strptime(ebay_sale_order.shipped_time, tools.DEFAULT_SERVER_DATETIME_FORMAT)
                     delta = (now_time - shipped_time).days
                     duration = ebay_sale_order.after_service_duration
-                    if delta > 7 and duration == '0' or not duration:
+                    if delta > 7 and (duration == '0' or not duration):
                         res = ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '7', context=context)
                     elif delta > 15 and duration == '7':
                         res = ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '15', context=context)
@@ -571,7 +571,7 @@ class ebay_message(osv.osv):
             shipped_time=ebay_sale_order.shipped_time,
             elapse=delta,
         )
-        
+                
         item_id = ebay_sale_order.transactions[0].item_id
         subject = 'Shipping about %s' % ebay_sale_order.transactions[0].name
         question_type = 'Shipping'
@@ -582,7 +582,7 @@ class ebay_message(osv.osv):
                 Body='<![CDATA[%s]]>' % body,
                 QuestionType=question_type,
                 RecipientID=ebay_sale_order.buyer_user_id,
-                Subject='<![CDATA[%s]]>' % subject,
+                Subject='<![CDATA[%s]]>' % subject[:99],
             )
         )
         call_name = 'AddMemberMessageAAQToPartner'

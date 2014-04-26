@@ -24,7 +24,7 @@ from openerp.osv import osv
 from openerp.osv import fields
 from openerp.tools.translate import _
 
-from ebay_utils import *
+from openerp.addons.ebay.ebay_utils import *
 
 class get_order(osv.TransientModel):
     _name = 'ebay.getorder'

@@ -39,6 +39,7 @@
                                 <field name="paid_time"/>
                                 <field name="shipped_time"/>
                                 <field name="shipping_service"/>
+                                <field name="after_service_duration"/>
                             </group>
                         </group>
                         <group>
@@ -159,6 +160,7 @@
                     <field name="created_time"/>
                     <field name="state"/>
                     <field name="cancel_reason"/>
+                    <field name="after_service_duration"/>
                 </tree>
             </field>
         </record>

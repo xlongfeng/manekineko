@@ -135,7 +135,7 @@ class ebay_seller_list(osv.osv):
             
             vals['average_monthly_sales'] = average_monthly_sales
             
-            if item.has_key('PictureDetails') and  item.PictureDetails.has_key('PictureURL'):
+            if item.has_key('PictureDetails') and item.PictureDetails and item.PictureDetails.has_key('PictureURL'):
                 picture_url = item.PictureDetails.PictureURL
                 vals['picture'] = '<img src="%s" width="500"/>' % ebay_repeatable_list(picture_url)[0]
             
@@ -231,7 +231,7 @@ class ebay_seller_list(osv.osv):
                 page_number += 1
                 multiple_threads += 1
                 
-            parallel.wait(60)
+            parallel.wait(120)
                 
             for api in apis:
                 reply = api.response.reply

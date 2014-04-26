@@ -234,7 +234,7 @@ class ebay_item_synchronize(osv.TransientModel):
                     return _eps_pictures
                 
                 eps_pictures = list()
-                if item.has_key('PictureDetails') and item.PictureDetails.has_key('PictureURL'):
+                if item.has_key('PictureDetails') and item.PictureDetails and item.PictureDetails.has_key('PictureURL'):
                     eps_pictures = get_eps_pictures(item.PictureDetails.PictureURL)
                 
                 def item_create(vals, eps_pictures=None):

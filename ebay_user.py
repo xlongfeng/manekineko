@@ -46,6 +46,7 @@ import json
 
 import ebaysdk
 from ebaysdk.exception import ConnectionError, ConnectionResponseError
+from ssl import SSLError
 from requests.exceptions import RequestException
 
 _logger = logging.getLogger(__name__)
@@ -320,9 +321,8 @@ Hi friend.
         
         try:
             for user in self.browse(cr, uid, ids, context=context):
-                self.pool.get('ebay.ebay').get_ebay_official_time(cr, uid, user, context=context)
                 ebay_seller_list_obj.get_seller_list(cr, uid, user, context=context)
-        except (ConnectionError, ConnectionResponseError, RequestException) as e:
+        except (ConnectionError, ConnectionResponseError, RequestException, SSLError) as e:
             return self.pool.get('ebay.ebay').exception(cr, uid, 'GetSellerList', e, context=context)
         else:
             return True
