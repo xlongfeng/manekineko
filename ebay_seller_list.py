@@ -98,6 +98,7 @@ class ebay_seller_list(osv.osv):
     def create_items(self, cr, uid, user, items, context=None):
         monthly_sales = 0
         monthly_sales_volume = 0
+        now = datetime.now()
         for item in ebay_repeatable_list(items):
             if item.ListingType not in ('FixedPriceItem', 'StoresFixedPrice'):
                 continue
@@ -125,7 +126,7 @@ class ebay_seller_list(osv.osv):
             vals['watch_count'] = item.WatchCount if item.has_key('WatchCount') else 0
             vals['user_id'] = user.id
             
-            delta_days = (time_now - start_time).days
+            delta_days = (now - start_time).days
             if delta_days <= 0:
                 delta_days = 1
             average_monthly_sales = quantity_sold * 30 / delta_days
@@ -177,7 +178,8 @@ class ebay_seller_list(osv.osv):
         call_data['OutputSelector'] = output_selector
         
         api = self.pool.get('ebay.ebay').trading(cr, uid, user, call_name, parallel=parallel, context=context)
-        return api.execute(call_name, call_data)
+        api.execute(call_name, call_data)
+        return api
     
     def get_seller_list(self, cr, uid, user, context=None):
         last_updated = user.last_updated
@@ -185,19 +187,16 @@ class ebay_seller_list(osv.osv):
             now_time = datetime.now()
             last_updated = datetime.strptime(last_updated, tools.DEFAULT_SERVER_DATETIME_FORMAT)
             delta = (now_time - last_updated).days
-            if delta < 7 and False:
+            if delta < 7:
                 return True
+    
         cr.execute('delete from ebay_seller_list \
                         where user_id=%s', (user.id,))
-        monthly_sales = 0.0
-        monthly_sales_volume = 0
         
-        # TODO
-        time_now = datetime.now()
-        time_now_pdt = datetime.now(pytz.timezone('US/Pacific'))
-        end_time_from = time_now_pdt.isoformat()
-        end_time_to = (time_now_pdt + timedelta(30)).isoformat()
-        entries_per_page = 10
+        now = datetime.now()
+        end_time_from = now.isoformat()
+        end_time_to = (now + timedelta(30)).isoformat()
+        entries_per_page = 160
         page_number = 1
         
         call_param = dict(
@@ -207,80 +206,41 @@ class ebay_seller_list(osv.osv):
             page_number=page_number
         )
         
-        reply = self.get_seller_list_call(cr, uid, user, call_param, context=context).reply
+        reply = self.get_seller_list_call(cr, uid, user, call_param, context=context).response.reply
         total_number_of_pages = int(reply.PaginationResult.TotalNumberOfPages)
-        print 'x' * 30, total_number_of_pages
         
         if total_number_of_pages == 0:
-            return
+            return True
         
-        '''
-        has_more_items = True
-        while has_more_items:
-            call_data=dict()
-            call_data['EndTimeFrom'] = end_time_from
-            call_data['EndTimeTo'] = end_time_to
-            call_data['IncludeWatchCount'] = True
-            call_data['Pagination'] = {
-                'EntriesPerPage': entries_per_page,
-                'PageNumber': page_number,
-            }
-            call_data['UserID'] = user.name
-            call_data['DetailLevel'] = 'ReturnAll'
-            call_data['OutputSelector'] = output_selector
-            try:
-                api.execute(call_name, call_data)
+        monthly_sales, monthly_sales_volume = self.create_items(cr, uid, user, reply.ItemArray.Item, context=context)
+        
+        page_number = 2
+        total_number_of_pages += 1
+        while page_number < total_number_of_pages:
+            parallel = Parallel()
+            multiple_threads = 0
+            apis = list()
+            while page_number < total_number_of_pages and multiple_threads < 5:
+                call_param = dict(
+                    end_time_from=end_time_from,
+                    end_time_to=end_time_to,
+                    entries_per_page=entries_per_page,
+                    page_number=page_number
+                )
+                apis.append(self.get_seller_list_call(cr, uid, user, call_param, parallel=parallel, context=context))
+                page_number += 1
+                multiple_threads += 1
+                
+            parallel.wait(60)
+                
+            for api in apis:
                 reply = api.response.reply
-            except ConnectionError:
-                raise
-            except (ConnectionResponseError, RequestException):
-                raise
-            else:
-                has_more_items = reply.HasMoreItems == 'true'
-                items = reply.ItemArray.Item
-                for item in ebay_repeatable_list(items):
-                    if item.ListingType not in ('FixedPriceItem', 'StoresFixedPrice'):
-                        continue
-                    vals = dict()
-                    vals['buy_it_now_price'] = float(item.BuyItNowPrice.value)
-                    vals['currency'] = item.Currency
-                    vals['hit_count'] = item.HitCount if item.has_key('HitCount') else 0
-                    vals['item_id'] = item.ItemID
-                    
-                    listing_details = item.ListingDetails
-                    vals['end_time'] = listing_details.EndTime
-                    start_time = listing_details.StartTime
-                    vals['start_time'] = start_time
-                    vals['view_item_url'] = listing_details.ViewItemURL
-                    
-                    vals['quantity'] = int(item.Quantity)
-                    
-                    selling_status = item.SellingStatus
-                    start_price = float(item.StartPrice.value)
-                    quantity_sold = int(selling_status.QuantitySold)
-                    vals['quantity_sold'] = quantity_sold
-                    vals['start_price'] = start_price
-                    
-                    vals['name'] = item.Title
-                    vals['watch_count'] = item.WatchCount if item.has_key('WatchCount') else 0
-                    vals['user_id'] = user.id
-                    
-                    delta_days = (time_now - start_time).days
-                    if delta_days <= 0:
-                        delta_days = 1
-                    average_monthly_sales = quantity_sold * 30 / delta_days
-                    monthly_sales = monthly_sales + start_price * average_monthly_sales
-                    monthly_sales_volume = monthly_sales_volume + average_monthly_sales
-                    
-                    vals['average_monthly_sales'] = average_monthly_sales
-                    
-                    if item.has_key('PictureDetails') and  item.PictureDetails.has_key('PictureURL'):
-                        picture_url = item.PictureDetails.PictureURL
-                        vals['picture'] = '<img src="%s" width="500"/>' % ebay_repeatable_list(picture_url)[0]
-                    
-                    self.create(cr, uid, vals, context=context)
-                page_number = page_number + 1
-        '''
+                if reply.Ack in ('Success', 'Warning'):
+                    _monthly_sales, _monthly_sales_volume = self.create_items(cr, uid, user, reply.ItemArray.Item, context=context)
+                    monthly_sales += _monthly_sales
+                    monthly_sales_volume += _monthly_sales_volume
+                else:
+                    raise ConnectionError(api.error())
             
         return user.write(dict(
             last_updated=fields.datetime.now(),

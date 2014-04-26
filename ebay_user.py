@@ -45,9 +45,8 @@ import urllib2
 import json
 
 import ebaysdk
-from ebaysdk.utils import getNodeText
 from ebaysdk.exception import ConnectionError, ConnectionResponseError
-from ebaysdk.trading import Connection as Trading
+from requests.exceptions import RequestException
 
 _logger = logging.getLogger(__name__)
 
@@ -318,9 +317,15 @@ Hi friend.
     
     def action_get_seller_list(self, cr, uid, ids, context=None):
         ebay_seller_list_obj = self.pool.get('ebay.seller.list')
-        for user in self.browse(cr, uid, ids, context=context):
-            if ebay_seller_list_obj.get_seller_list(cr, uid, user, context=context) == False:
-                break
+        
+        try:
+            for user in self.browse(cr, uid, ids, context=context):
+                self.pool.get('ebay.ebay').get_ebay_official_time(cr, uid, user, context=context)
+                ebay_seller_list_obj.get_seller_list(cr, uid, user, context=context)
+        except (ConnectionError, ConnectionResponseError, RequestException) as e:
+            return self.pool.get('ebay.ebay').exception(cr, uid, 'GetSellerList', e, context=context)
+        else:
+            return True
             
 ebay_user()
 

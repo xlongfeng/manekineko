@@ -3,5 +3,22 @@
     <data>
         <!-- Top menu item -->
         <menuitem id="menu_ebay_top" name="eBay"/>
+        
+        <record model="ir.ui.view" id="ebay_api_exception_view">
+            <field name="name">eBay Api Exception</field>
+            <field name="model">ebay.ebay</field>
+            <field name="arch" type="xml">
+                <form string="ebay api exception" version="7.0">
+		    <group>
+                        <field name="method"/>
+                        <field name="exception"/>
+                    </group>
+		    <footer>
+			<button special="cancel" string="Close" type="object"/>
+		    </footer>
+		</form>
+	    </field>
+	</record>
+        
     </data>
 </openerp>

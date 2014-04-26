@@ -103,11 +103,10 @@ class ebay_item_synchronize(osv.TransientModel):
             ]
         if this.autocreate:
             output_selector.append('ItemArray.Item.Description')
-        # TODO
-        time_now = datetime.now()
-        time_now_pdt = datetime.now(pytz.timezone('US/Pacific'))
-        end_time_from = time_now_pdt.isoformat()
-        end_time_to = (time_now_pdt + timedelta(30)).isoformat()
+        
+        now = datetime.now()
+        end_time_from = now.isoformat()
+        end_time_to = (now + timedelta(30)).isoformat()
         entries_per_page = 100
         page_number = 1
         has_more_items = True

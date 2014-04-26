@@ -45,9 +45,15 @@ from requests.exceptions import RequestException
 
 _logger = logging.getLogger(__name__)
     
-class ebay_ebay(osv.osv):
+class ebay_ebay(orm.TransientModel):
     _name = "ebay.ebay"
     _description = "eBay"
+    
+    _columns = {
+        'method': fields.char('Method', readonly=True),
+        'exception': fields.text('Exception', readonly=True),
+    }
+    
     _site_id_domainname_dict = {
         '0': 'ebay.com',
         '2': 'ebay.ca',
@@ -55,73 +61,6 @@ class ebay_ebay(osv.osv):
         '15': 'ebay.au',
         '201': 'ebay.hk',
     }
-    
-    def to_default_format(self, cr, uid, timestamp, context=None):
-        if type(timestamp) == datetime:
-            return timestamp.strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT)
-        else:
-            date = parser.parse(timestamp)
-            return date.strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT)
-    
-    def to_iso8601_format(self, cr, uid, timestamp, context=None):
-        if type(timestamp) == datetime:
-            return timestamp.isoformat()
-        else:
-            date = (parser.parse(timestamp))
-            return date.isoformat()
-        
-    def format_errors(self, cr, uid, errors, context=None):
-        if type(errors) != list:
-            errors = [errors]
-            
-        template = '''
-<h2>{{ error.ShortMessage }}</h2>
-<ul>
-  <li><b>{{ error.LongMessage }}</b></li>
-  <li>Error Classification: {{ error.ErrorClassification }}</li>
-  <li>Severity Code: {{ error.SeverityCode }}</li>
-  <li>Error Code: {{ error.ErrorCode }}</li>
-{% if error_parameters %}
-  <li>
-    <ul>
-    {% for error_parameter in error_parameters %}
-      <li>{{ error_parameter._ParamID }}: {{ error_parameter.Value }}</li>
-    {% endfor %}
-    </ul>
-  </li>
-{% endif %}
-</ul>
-        '''
-        e = ''
-        t = Template(template)
-        for error in errors:
-            if error.has_key('ErrorParameters'):
-                error_parameters = error.ErrorParameters
-                if type(error_parameters) != list:
-                    error_parameters = [error_parameters]
-            else:
-                error_parameters = []
-            e += t.render(
-            error=error,
-            error_parameters=error_parameters,
-        )
-        return e
-        
-    def dump_resp(self, cr, uid, api, context=None):
-        print("ebay api dump")
-
-        if api.warnings():
-            print("Warnings" + api.warnings())
-    
-        if api.response.content:
-            print("Call Success: %s in length" % len(api.response.content))
-    
-        print("Response code: %s" % api.response_code())
-        print("Response DOM1: %s" % api.response_dom())
-        print("Response ETREE: %s" % api.response.dom())
-    
-        print(api.response.content)
-        print(api.response.json())
     
     def _get_domainname_by_site_id(self, cr, uid, site_id, context=None):
         return self._site_id_domainname_dict.get(site_id, self._site_id_domainname_dict['0'])
@@ -173,7 +112,10 @@ class ebay_ebay(osv.osv):
             api.config.set('appid', user.app_id, force=True)
             api.config.set('devid', user.dev_id, force=True)
             api.config.set('certid', user.cert, force=True)
-        
+            
+        if parallel:
+            api.config.set('errors', False, force=True)
+            
         if call_name not in ('GetSessionID', 'FetchToken'):
             token = ''
             if user.ownership and user.ebay_auth_token:
@@ -199,6 +141,25 @@ class ebay_ebay(osv.osv):
             raise orm.except_orm(_('Warning!'), _('%s: %s' % (error_msg, e)))
         else:
             return api
+        
+    def exception(self, cr, uid, method, exception, context=None):
+        id = self.create(cr, uid, {'method': method, 'exception': exception}, context=context)
+        return {
+            'name': "eBay Api Exception",
+            'type': 'ir.actions.act_window',
+            'res_model': 'ebay.ebay',
+            'view_mode': 'form',
+            'view_type': 'form',
+            'res_id': id,
+            'views': [(False, 'form')],
+            'target': 'new',
+        }
+    
+    def get_ebay_official_time(self, cr, uid, user, context=None):
+        api = self.call(cr, uid, user, 'GeteBayOfficialTime', error_msg='GeteBayOfficialTime', context=context)
+        ebay_dump(api)
+        now = datetime.now()
+        print 'local time now: ', now, now.isoformat()
 
 ebay_ebay()
 

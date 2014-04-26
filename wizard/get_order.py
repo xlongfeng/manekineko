@@ -24,6 +24,8 @@ from openerp.osv import osv
 from openerp.osv import fields
 from openerp.tools.translate import _
 
+from ebay_utils import *
+
 class get_order(osv.TransientModel):
     _name = 'ebay.getorder'
     _description = 'eBay Get Orders'
@@ -149,7 +151,7 @@ class get_order(osv.TransientModel):
                     if ids:
                         sale_order = ebay_sale_order_obj.browse(cr, uid, ids[0], context=context)
                         last_modified_time = order.CheckoutStatus.LastModifiedTime
-                        if sale_order.cs_last_modified_time != ebay_ebay_obj.to_default_format(cr, uid, last_modified_time):
+                        if sale_order.cs_last_modified_time != ebay_strftime(last_modified_time):
                             # last modified
                             vals = dict()
                             if order.has_key('CancelReason'):

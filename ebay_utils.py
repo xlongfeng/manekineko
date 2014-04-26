@@ -23,6 +23,8 @@ import os
 import sys
 from datetime import datetime, timedelta
 
+from jinja2 import Template
+
 from openerp import tools
 from openerp.osv import fields, orm
 
@@ -42,7 +44,7 @@ def ebay_repeatable(repeatable):
     else:
         return repeatable
 
-def ebay_strftime():
+def ebay_strftime(timestamp):
     if type(timestamp) == datetime:
         return timestamp.strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT)
     else:
@@ -53,5 +55,51 @@ def ebay_strptime(timestamp):
         return timestamp
     else:
         return datetime.strptime(timestamp, tools.DEFAULT_SERVER_DATETIME_FORMAT)
+    
+def ebay_dump(api):
+    if api.warnings():
+        print("Warnings" + api.warnings())
+    
+    print("Response code: %s" % api.response_code())
+    print("Response ETREE: %s" % api.response.dom())
+    
+    print(api.response.content)
+    print(api.response.json())
+    
+def ebay_errors(errors):
+    errors = ebay_repeatable_list(errors)
+        
+    template = '''
+<h2>{{ error.ShortMessage }}</h2>
+<ul>
+  <li><b>{{ error.LongMessage }}</b></li>
+  <li>Error Classification: {{ error.ErrorClassification }}</li>
+  <li>Severity Code: {{ error.SeverityCode }}</li>
+  <li>Error Code: {{ error.ErrorCode }}</li>
+{% if error_parameters %}
+  <li>
+    <ul>
+    {% for error_parameter in error_parameters %}
+      <li>{{ error_parameter._ParamID }}: {{ error_parameter.Value }}</li>
+    {% endfor %}
+    </ul>
+  </li>
+{% endif %}
+</ul>
+    '''
+    e = ''
+    t = Template(template)
+    for error in errors:
+        if error.has_key('ErrorParameters'):
+            error_parameters = error.ErrorParameters
+            if type(error_parameters) != list:
+                error_parameters = [error_parameters]
+        else:
+            error_parameters = []
+        e += t.render(
+        error=error,
+        error_parameters=error_parameters,
+    )
+    return e
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:

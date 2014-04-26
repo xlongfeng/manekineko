@@ -25,12 +25,8 @@ import base64
 import urllib2
 import uuid
 import logging
-from datetime import datetime, timedelta, tzinfo
-import dateutil.parser as parser
-from dateutil.relativedelta import relativedelta
-from operator import itemgetter
+from datetime import datetime, timedelta
 import time
-import pytz
 
 from jinja2 import Template
 
@@ -43,6 +39,7 @@ from openerp.tools.float_utils import float_round
 import openerp.addons.decimal_precision as dp
 
 from requests import exceptions
+from ebay_utils import *
 import ebaysdk
 from ebaysdk.utils import getNodeText
 from ebaysdk.exception import ConnectionError, ConnectionResponseError
@@ -137,14 +134,6 @@ class ebay_category(osv.osv):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         for category in self.browse(cr, uid, ids, context=context):
             user = ebay_ebay_obj.get_arbitrary_auth_user(cr, uid, category.sandbox)
-            call_data=dict()
-            call_data['CategoryParent'] = category.category_id
-            call_data['CategorySiteID'] = category.category_site_id
-            #call_data['ViewAllNodes'] = False
-            error_msg = 'Get the category information for %s' % category.category_id
-            #resp = ebay_ebay_obj.call(cr, uid, user, 'GetCategories', call_data, error_msg, context=context).response_dict()
-            #ebay_ebay_obj.dump_resp(cr, uid, resp)
-            
             call_data = dict()
             call_data['AllFeaturesForCategory'] = True
             call_data['CategoryID'] = category.category_id
@@ -740,10 +729,10 @@ Secondary value1 | Secondary value2 ...
         
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         ebay_eps_picturesetmember = self.pool.get('ebay.eps.picturesetmember')
-        # TODO
-        time_now_pdt = datetime.now()
+        
+        now = datetime.now()
         for picture in eps_pictures:
-            if not picture.use_by_date or (parser.parse(picture.use_by_date) - time_now_pdt).days < 2:
+            if not picture.use_by_date or (ebay_strptime(picture.use_by_date) - now).days < 2:
                 image = io.BytesIO(base64.b64decode(picture.image))
                 call_data = dict()
                 call_data['PictureSet'] = 'Supersize'
@@ -1078,7 +1067,7 @@ Secondary value1 | Secondary value2 ...
             api.execute(call_name, call_data)
         except ConnectionError as e:
             reply = api.response.reply
-            error = ebay_ebay_obj.format_errors(cr, uid, reply.Errors, context=context)
+            error = ebay_errors(reply.Errors)
             self.api_execute_exception(cr, uid, item, error, response=api.response.json(), context=context)
             # This item has errors, goto next item
             return True
@@ -1149,7 +1138,7 @@ Secondary value1 | Secondary value2 ...
                 if reply.Ack == 'Warning' and reply.has_key('Errors'):
                     vals['severity_code_error'] = False
                     vals['severity_code_warning'] = True
-                    vals['error_message'] = ebay_ebay_obj.format_errors(cr, uid, reply.Errors, context=context)
+                    vals['error_message'] = ebay_errors(reply.Errors)
                 else:
                     vals['severity_code_error'] = False
                     vals['severity_code_warning'] = False
@@ -1298,7 +1287,7 @@ Secondary value1 | Secondary value2 ...
                 if reply.Ack == 'Warning' and reply.has_key('Errors'):
                     vals['severity_code_error'] = False
                     vals['severity_code_warning'] = True
-                    vals['error_message'] = ebay_ebay_obj.format_errors(cr, uid, reply.Errors, context=context)
+                    vals['error_message'] = ebay_errors(reply.Errors)
                 else:
                     vals['severity_code_error'] = False
                     vals['severity_code_warning'] = False

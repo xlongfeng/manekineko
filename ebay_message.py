@@ -38,6 +38,7 @@ import pytz
 from openerp import SUPERUSER_ID
 
 from requests import exceptions
+from ebay_utils import *
 import ebaysdk
 from ebaysdk.utils import getNodeText
 from ebaysdk.exception import ConnectionError, ConnectionResponseError
@@ -174,7 +175,7 @@ class ebay_message_synchronize(osv.TransientModel):
                             if ids:
                                 ebay_message = ebay_message_obj.browse(cr, uid, ids[0], context=context)
                                 last_modified_date = message.LastModifiedDate
-                                if ebay_message.last_modified_date != ebay_ebay_obj.to_default_format(cr, uid, last_modified_date):
+                                if ebay_message.last_modified_date != ebay_strftime(last_modified_date):
                                     # last modified
                                     vals = dict(
                                         last_modified_date=message.LastModifiedDate,
