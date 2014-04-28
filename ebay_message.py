@@ -504,7 +504,7 @@ class ebay_message(osv.osv):
                     ParentMessageID=msg.parent_message_id,
                     QuestionType=msg.question_type,
                     RecipientID=msg.recipient_or_sender_id,
-                    Subject='<![CDATA[%s]]>' % msg.name,
+                    Subject='<![CDATA[%s]]>' % msg.name[:99],
                 )
             )
             if item_id:
@@ -519,7 +519,7 @@ class ebay_message(osv.osv):
                     Body='<![CDATA[%s]]>' % msg.body,
                     QuestionType=msg.question_type,
                     RecipientID=msg.recipient_or_sender_id,
-                    Subject='<![CDATA[%s]]>' % msg.name,
+                    Subject='<![CDATA[%s]]>' % msg.name[:99],
                 )
             )
             if message_media:
