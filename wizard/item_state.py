@@ -160,6 +160,7 @@ class ebay_item_sync_user(osv.TransientModel):
                 vals['hit_count'] = item.HitCount if item.has_key('HitCount') else 0
                 vals['item_id'] = item.ItemID
                 vals['quantity_sold'] = selling_status.QuantitySold
+                vals['quantity_surplus'] = int(item.Quantity) - int(selling_status.QuantitySold)
                 vals['start_time'] = listing_details.StartTime
                 listing_status = selling_status.ListingStatus
                 vals['state'] = listing_status
@@ -254,6 +255,7 @@ class ebay_item_sync_user(osv.TransientModel):
                             variation_specifics_set=variation_specifics,
                             parent_id = id,
                             quantity_sold=v.SellingStatus.QuantitySold,
+                            quantity_surplus=int(v.Quantity) - int(v.SellingStatus.QuantitySold),
                             state=listing_status,
                         )
                         
@@ -271,7 +273,11 @@ class ebay_item_sync_user(osv.TransientModel):
         ebay_item_obj = self.pool.get('ebay.item')
         id = variation.SKU if variation.has_key('SKU') and variation.SKU.isdigit() else ''
         if id:
-            ebay_item_obj.write(cr, uid, int(id), dict(quantity_sold=variation.SellingStatus.QuantitySold), context=context)
+            ebay_item_obj.write(cr, uid, int(id), dict(
+                quantity_sold=variation.SellingStatus.QuantitySold,
+                quantity_surplus=int(variation.Quantity) - int(variation.SellingStatus.QuantitySold)
+            ),context=context)
+            ebay_item = ebay_item_obj.browse(cr, uid, int(id), context=context)
     
     def update_inventory(self, cr, uid, user, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
@@ -332,12 +338,14 @@ class ebay_item_sync_user(osv.TransientModel):
                     vals['hit_count'] = item.HitCount if item.has_key('HitCount') else 0
                     vals['item_id'] = item.ItemID
                     vals['quantity_sold'] = selling_status.QuantitySold
+                    vals['quantity_surplus'] = int(item.Quantity) - int(selling_status.QuantitySold)
                     vals['start_time'] = listing_details.StartTime
                     vals['state'] = selling_status.ListingStatus
                     vals['time_left'] = item.TimeLeft
                     vals['update_date'] = fields.datetime.now()
                     vals['watch_count'] = item.WatchCount if item.has_key('WatchCount') else 0
                     ebay_item_obj.write(cr, uid, int(sku), vals, context=context)
+                    ebay_item = ebay_item_obj.browse(cr, uid, int(sku), context=context)
                     if item.has_key('Variations'):
                         for v in ebay_repeatable_list(item.Variations.Variation):
                             self._update_variation(cr, uid, v, context=context)

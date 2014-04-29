@@ -535,7 +535,8 @@ Secondary value1 | Secondary value2 ...
         'end_time': fields.datetime('End Time', readonly=True),
         'hit_count': fields.integer('Hit Count', readonly=True),
         'item_id': fields.char('Item ID', size=38),
-        'quantity_sold': fields.integer('Quantity Sold', readonly=True),
+        'quantity_sold': fields.integer('Sold', readonly=True),
+        'quantity_surplus': fields.integer('Surplus', readonly=True),
         'start_time': fields.datetime('Start Time', readonly=True),
         'state': fields.selection([
             ('Draft', 'Draft'),
@@ -1044,8 +1045,13 @@ Secondary value1 | Secondary value2 ...
             if item_dict == False:
                 raise orm.except_orm(_('Warning!'), _('Can not upload pictures'))
             ebay_ebay_obj = self.pool.get('ebay.ebay')
-            error_msg = 'Verify add item: %s' % item.name
-            call_name = "VerifyAddItem" if auction else "VerifyAddFixedPriceItem"
+            if item.item_id:
+                item_dict['Item']['ItemID'] = item.item_id
+                call_name = "VerifyRelistItem" if auction else "VerifyRelistFixedPriceItem"
+            else:
+                call_name = "VerifyAddItem" if auction else "VerifyAddFixedPriceItem"
+            error_msg = '%s: %s' % (call_name, item.name)
+            
             api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
             item.write(dict(response=api.response.json()))
             

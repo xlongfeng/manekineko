@@ -73,6 +73,7 @@
                                     <field name="variation_specifics_set" string="Value"/>
                                     <field name="start_price"/>
                                     <field name="quantity"/>
+                                    <field name="quantity_surplus"/>
                                     <field name="quantity_sold"/>
                                 </tree>
                                 <form string="Variation" version="7.0">
@@ -222,7 +223,7 @@
                                         <field name="revise_date"/>
                                         <field name="start_time"/>
                                         <field name="hit_count"/>
-                                        <field name="quantity_sold" attrs="{'invisible': [('listing_type','=','Chinese')]}"/>
+                                        <field name="quantity_surplus" attrs="{'invisible': [('listing_type','=','Chinese')]}"/>
                                         <field name="bid_count" attrs="{'invisible': [('listing_type','!=','Chinese')]}"/>
                                     </group>
                                     <group>
@@ -230,6 +231,7 @@
                                         <field name="update_date"/>
                                         <field name="end_time"/>
                                         <field name="watch_count"/>
+                                        <field name="quantity_sold" attrs="{'invisible': [('listing_type','=','Chinese')]}"/>
                                     </group>
                                 </group>
                             </page>
@@ -271,7 +273,8 @@
                     <field name="name"/>
                     <field name="variation"/>
                     <field name="listing_type"/>
-                    <field name="quantity"/>
+                    <field name="quantity_surplus"/>
+                    <field name="quantity_sold"/>
                     <field name="listing_duration"/>
                     <field name="start_price"/>
                     <field name="state"/>
