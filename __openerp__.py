@@ -43,7 +43,6 @@ This is a module for managing ebay listings, orders and messages in OpenERP.
         'res_partner_view.xml',
         'wizard/get_order_view.xml',
         'wizard/item_state_view.xml',
-        'wizard/item_synchronize_view.xml',
         'security/ir.model.access.csv',
     ],
     'test': [

@@ -3,6 +3,53 @@
     <data>
 
         <!-- wizard view -->
+	<record model="ir.ui.view" id="ebay_item_user_item_view">
+            <field name="name">ebay item sync user</field>
+            <field name="model">ebay.item.sync.user</field>
+            <field name="arch" type="xml">
+                <form string="ebay item sync user" version="7.0">
+		    <field name="state" invisible="1"/>
+		    <separator string="Synchronize listing for the ebay user"/>
+		    <div states="option">
+			<group>
+			    <field name="ebay_user_id"/>
+			    <field name="autocreate"/>
+			</group>
+		    </div>
+		    <footer states="option">
+			<button name="action_sync" string="Synchronize" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		    <div states="complete">
+			<p>Synchronize Complete</p>
+			<group>
+			    <field name="count"/>
+			</group>
+		    </div>
+		    <footer states="complete">
+                        <button name="action_close" string="Close" type="object" class="oe_highlight"/>
+                    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <record id="action_ebay_item_sync_user_view" model="ir.actions.act_window">
+            <field name="name">Sync User Items</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">ebay.item.sync.user</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem
+            name="Sync User Items"
+            action="action_ebay_item_sync_user_view"
+            id="menu_ebay_item_sync_user_view"
+            parent="menu_ebay_listing_activity"
+            sequence="25" groups="ebay.group_ebay_manager"/>
+	
         <record model="ir.ui.view" id="ebay_item_sync_view">
             <field name="name">ebay item sync</field>
             <field name="model">ebay.item.sync</field>

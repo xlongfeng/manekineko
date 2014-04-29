@@ -28,6 +28,18 @@ from jinja2 import Template
 from openerp import tools
 from openerp.osv import fields, orm
 
+def ebay_str_split(s, sep):
+    if not s:
+        return list()
+    if sep == '\n':
+        s_list = s.splitlines()
+    else:
+        s_list = s.split(sep)
+    d = list()
+    for l in s_list:
+        d.append(l.strip())
+    return d
+
 def ebay_repeatable_list(repeatable):
     if type(repeatable) != list:
         repeatable = [repeatable]

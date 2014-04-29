@@ -21,7 +21,6 @@
 
 import get_order
 import item_state
-import item_synchronize
 import sale_order_state
 
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
