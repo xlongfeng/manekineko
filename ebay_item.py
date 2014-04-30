@@ -38,11 +38,11 @@ from openerp.tools.float_utils import float_round
 
 import openerp.addons.decimal_precision as dp
 
-from requests import exceptions
-from ebay_utils import *
 import ebaysdk
-from ebaysdk.utils import getNodeText
+from openerp.addons.ebay.ebay_utils import *
 from ebaysdk.exception import ConnectionError, ConnectionResponseError
+from ssl import SSLError
+from requests.exceptions import RequestException
 
 _logger = logging.getLogger(__name__)
 
@@ -750,19 +750,7 @@ Secondary value1 | Secondary value2 ...
                 except ConnectionResponseError as e:
                     # Network communication abnormal, abort whole items upload
                     return False
-                except exceptions.RequestException as e:
-                    # Network communication abnormal, abort whole items upload
-                    return False
-                except exceptions.ConnectionError as e:
-                    # Network communication abnormal, abort whole items upload
-                    return False
-                except exceptions.HTTPError as e:
-                    # Network communication abnormal, abort whole items upload
-                    return False
-                except exceptions.URLRequired as e:
-                    # Network communication abnormal, abort whole items upload
-                    return False
-                except exceptions.TooManyRedirects as e:
+                except RequestException as e:
                     # Network communication abnormal, abort whole items upload
                     return False
                 else:
@@ -863,6 +851,38 @@ Secondary value1 | Secondary value2 ...
         )
         
         return True
+    
+    def item_shipping_details_dict(self, cr, uid, item, context=None):
+        if item.shipping_details_id:
+            user = item.ebay_user_id
+            sd = item.shipping_details_id
+            shipping_details = dict()
+            shipping_details['InternationalShippingServiceOption'] = dict(
+                ShippingService=sd.isso_shipping_service,
+                ShippingServiceAdditionalCost=sd.sso_shipping_service_additional_Cost,
+                ShippingServiceCost=sd.isso_shipping_service_cost,
+                ShippingServicePriority=sd.isso_shipping_service_priority,
+                ShipToLocation='Worldwide'
+            )
+            
+            exclude_ship_to_location = user.exclude_ship_to_location
+            if exclude_ship_to_location:
+                shipping_details['ExcludeShipToLocation'] = user.exclude_ship_to_location.split('|')
+            
+            shipping_details['ShippingServiceOptions'] = dict(
+                ShippingService=sd.sso_shipping_service,
+                ShippingServicePriority=sd.sso_shipping_service_priority,
+            )
+            if sd.sso_free_shipping:
+                shipping_details['ShippingServiceOptions']['FreeShipping'] = "true"
+            else:
+                shipping_details['ShippingServiceOptions']['ShippingServiceAdditionalCost'] = sd.sso_shipping_service_additional_Cost
+                shipping_details['ShippingServiceOptions']['ShippingServiceCost'] = sd.sso_shipping_service_cost
+
+            shipping_details['ShippingType'] = sd.shipping_type
+            return shipping_details
+        else:
+            return False
     
     def item_create(self, cr, uid, item, context=None):
         user = item.ebay_user_id
@@ -978,33 +998,8 @@ Secondary value1 | Secondary value2 ...
                 return_policy['description'] = '<![CDATA[' + rp.description + ']]>'
             item_dict['Item']['ReturnPolicy'] = return_policy
         
-        if item.shipping_details_id:
-            sd = item.shipping_details_id
-            shipping_details = dict()
-            shipping_details['InternationalShippingServiceOption'] = dict(
-                ShippingService=sd.isso_shipping_service,
-                ShippingServiceAdditionalCost=sd.sso_shipping_service_additional_Cost,
-                ShippingServiceCost=sd.isso_shipping_service_cost,
-                ShippingServicePriority=sd.isso_shipping_service_priority,
-                ShipToLocation='Worldwide'
-            )
-            
-            exclude_ship_to_location = user.exclude_ship_to_location
-            if exclude_ship_to_location:
-                shipping_details['ExcludeShipToLocation'] = user.exclude_ship_to_location.split('|')
-            
-            shipping_details['ShippingServiceOptions'] = dict(
-                ShippingService=sd.sso_shipping_service,
-                ShippingServicePriority=sd.sso_shipping_service_priority,
-            )
-            if sd.sso_free_shipping:
-                shipping_details['ShippingServiceOptions']['FreeShipping'] = "true"
-            else:
-                shipping_details['ShippingServiceOptions']['ShippingServiceAdditionalCost'] = sd.sso_shipping_service_additional_Cost
-                shipping_details['ShippingServiceOptions']['ShippingServiceCost'] = sd.sso_shipping_service_cost
-
-            shipping_details['ShippingType'] = sd.shipping_type
-            
+        shipping_details = self.item_shipping_details_dict(cr, uid, item, context=context)
+        if shipping_details:
             item_dict['Item']['ShippingDetails'] = shipping_details
         
         return item_dict, auction
@@ -1081,23 +1076,7 @@ Secondary value1 | Secondary value2 ...
             self.api_execute_exception(cr, uid, item, e, context=context)
             # Network communication abnormal, abort whole items upload
             return False
-        except exceptions.RequestException as e:
-            self.api_execute_exception(cr, uid, item, e, context=context)
-            # Network communication abnormal, abort whole items upload
-            return False
-        except exceptions.ConnectionError as e:
-            self.api_execute_exception(cr, uid, item, e, context=context)
-            # Network communication abnormal, abort whole items upload
-            return False
-        except exceptions.HTTPError as e:
-            self.api_execute_exception(cr, uid, item, e, context=context)
-            # Network communication abnormal, abort whole items upload
-            return False
-        except exceptions.URLRequired as e:
-            self.api_execute_exception(cr, uid, item, e, context=context)
-            # Network communication abnormal, abort whole items upload
-            return False
-        except exceptions.TooManyRedirects as e:
+        except RequestException as e:
             self.api_execute_exception(cr, uid, item, e, context=context)
             # Network communication abnormal, abort whole items upload
             return False
@@ -1195,6 +1174,112 @@ Secondary value1 | Secondary value2 ...
                     return True
         
         return False
+    
+    def variation_quantity_dict(self, cr, uid, item, child_ids=None, context=None): 
+        user = item.ebay_user_id
+        variations_dict = dict()
+        
+        specific_names = split_str(item.variation_specific_name, '|')
+        
+        variants = list()
+        for variant in child_ids:
+            index = 0
+            name_value_list = list()
+            for value in split_str(variant.variation_specifics_set, '\n'):
+                name_value_list.append(dict(
+                    Name=specific_names[index],
+                    Value=value,
+                ))
+                index+=1
+            v = dict(
+                    Quantity=variant.quantity,
+                    SKU=variant.id,
+                    StartPrice=variant.start_price,
+                    VariationSpecifics=dict(
+                        NameValueList=name_value_list if len(name_value_list) > 1 else name_value_list[0],
+                    )
+                )
+            variants.append(v)
+        variations_dict['Variation'] = variants if len(variants) > 1 else variants[0]
+            
+        name_value_list = list()
+        index = 0
+        for specific_values in split_str(item.variation_specifics_set, '\n'):
+            if specific_values:
+                specific_values = split_str(specific_values, '|')
+                name_value_list.append(dict(
+                    Name=specific_names[index],
+                    Value=specific_values if len(specific_values) > 1 else specific_values[0]
+                ))
+                index+=1
+        variations_dict['VariationSpecificsSet'] = dict(
+            NameValueList=name_value_list if len(name_value_list) > 1 else name_value_list[0]
+        )
+        
+        return variations_dict
+    
+    def revise_item_quantity(self, cr, uid, item, child_ids=None, context=None):
+        user = item.ebay_user_id
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
+        call_data = {
+            'Item': {
+                'ItemID': item.item_id,
+                
+            },
+            #'InvocationID': item.uuid,
+        }
+        shipping_details = self.item_shipping_details_dict(cr, uid, item, context=context)
+        if shipping_details:
+            call_data['Item']['ShippingDetails'] = shipping_details
+        if child_ids:
+            call_data['Item']['Variations'] = self.variation_quantity_dict(cr, uid, item, child_ids, context=context)
+        else:
+            call_data['Item']['Quantity'] = item.quantity
+        call_name = "ReviseFixedPriceItem"
+        api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+        try:
+            reply = api.execute(call_name, call_data).reply
+        except ConnectionError as e:
+            vals = dict()
+            vals['response'] = api.response.json()
+            vals['severity_code_error'] = True
+            vals['severity_code_warning'] = False
+            vals['error_message'] = ebay_errors(api.response.reply.Errors)
+            item.write(vals)
+        else:
+            vals = dict()
+            vals['revise_date'] = fields.datetime.now()
+            vals['response'] = api.response.json()
+            if reply.Ack == 'Warning' and reply.has_key('Errors'):
+                vals['severity_code_error'] = False
+                vals['severity_code_warning'] = True
+                vals['error_message'] = ebay_errors(reply.Errors)
+            else:
+                vals['severity_code_error'] = False
+                vals['severity_code_warning'] = False
+                vals['error_message'] = ''
+            item.write(vals)
+    
+    def revise_quantity(self, cr, uid, ids, context=None):
+        def _eligible_item(item):
+            if item.quantity != item.quantity_surplus and item.product_ids:
+                for product in item.product_ids:
+                    if product.product_id.state in ['end', 'obsolete']:
+                        return False
+                return True
+            return False
+        
+        for item in self.browse(cr, uid, ids, context=context):
+            if not item.variation_invalid and item.variation:
+                child_ids = []
+                for variation in item.child_ids:
+                    if _eligible_item(variation):
+                        child_ids.append(variation)
+                if len(child_ids):
+                    self.revise_item_quantity(cr, uid, item, child_ids, context=context)
+            else:
+                if _eligible_item(item):
+                    self.revise_item_quantity(cr, uid, item, context=context)
         
     def action_revise(self, cr, uid, ids, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')

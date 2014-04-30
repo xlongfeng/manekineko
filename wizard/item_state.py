@@ -45,6 +45,7 @@ class ebay_item_sync_user(osv.TransientModel):
     _columns = {
         'ebay_user_id': fields.many2one('ebay.user', 'eBay User', required=True, domain=[('ownership','=',True)]),
         'autocreate': fields.boolean('Create New Item'),
+        'revise_quantity': fields.boolean('Revise Quantity'),
         'count': fields.integer('New/Updated Lists', readonly=True),
         'state': fields.selection([
             ('option', 'option'),   # select ebay user option
@@ -53,10 +54,11 @@ class ebay_item_sync_user(osv.TransientModel):
     
     _defaults = {
         'autocreate': False,
+        'revise_quantity': False,
         'state': 'option',
     }
     
-    def create_inventory(self, cr, uid, user, context=None):
+    def create_inventory(self, cr, uid, this, user, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         ebay_item_obj = self.pool.get('ebay.item')
         ebay_category_obj = self.pool.get('ebay.category')
@@ -279,7 +281,7 @@ class ebay_item_sync_user(osv.TransientModel):
             ),context=context)
             ebay_item = ebay_item_obj.browse(cr, uid, int(id), context=context)
     
-    def update_inventory(self, cr, uid, user, context=None):
+    def update_inventory(self, cr, uid, this, user, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         ebay_item_obj = self.pool.get('ebay.item')
         
@@ -350,6 +352,15 @@ class ebay_item_sync_user(osv.TransientModel):
                         for v in ebay_repeatable_list(item.Variations.Variation):
                             self._update_variation(cr, uid, v, context=context)
                     count += 1
+                    
+        if this.revise_quantity:
+            domain = [('ebay_user_id', '=', user.id), ('state', '=', 'Active'), ('listing_type', '=', 'FixedPriceItem'), ('parent_id', '=', False)]
+            ids = ebay_item_obj.search(cr, uid, domain, context=context)
+            try:
+                ebay_item_obj.revise_quantity(cr, uid, ids, context=context)
+            except (ConnectionResponseError, RequestException, SSLError) as e:
+                return self.pool.get('ebay.ebay').exception(cr, uid, 'Revise Item Quantity', e, context=context)
+        
         return count
     
     def action_sync(self, cr, uid, ids, context=None):
@@ -359,9 +370,9 @@ class ebay_item_sync_user(osv.TransientModel):
         this = self.browse(cr, uid, ids)[0]
         user = this.ebay_user_id
         if this.autocreate:
-            count = self.create_inventory(cr, uid, user, context=context)
+            count = self.create_inventory(cr, uid, this, user, context=context)
         else:
-            count = self.update_inventory(cr, uid, user, context=context)
+            count = self.update_inventory(cr, uid, this, user, context=context)
         
         vals = dict(
             count=count,
