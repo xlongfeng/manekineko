@@ -58,7 +58,14 @@ class ebay_sale_order_confirm(osv.TransientModel):
             context = {}
         record_ids = context and context.get('active_ids', False)
         self.pool.get('ebay.sale.order').action_confirm(cr, uid, record_ids, context=None)
-        return {'type': 'ir.actions.act_window_close'}
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Sale Orders',
+            'view_mode': 'tree,form',
+            'view_type': 'form',
+            'res_model': 'ebay.sale.order',
+            'context': "{'search_default_state': 'confirmed'}",
+        }
     
 ebay_sale_order_confirm()
 
@@ -85,7 +92,14 @@ class ebay_sale_order_assign(osv.TransientModel):
             context = {}
         record_ids = context and context.get('active_ids', False)
         self.pool.get('ebay.sale.order').action_assign(cr, uid, record_ids, context=None)
-        return {'type': 'ir.actions.act_window_close'}
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Sale Orders',
+            'view_mode': 'tree,form',
+            'view_type': 'form',
+            'res_model': 'ebay.sale.order',
+            'context': "{'search_default_state': 'assigned'}",
+        }
     
 ebay_sale_order_assign()
 
@@ -327,7 +341,6 @@ class ebay_sale_order_print(osv.TransientModel):
                     delivery_slips[address_id] = slip
         delivery_slips = delivery_slips.values()
         delivery_slips.sort(key=lambda x:x['ref'],reverse=True)
-        print delivery_slips
         
         workbook = self.carrier_4px_format(cr, uid, delivery_slips, context=context)
         
@@ -447,7 +460,13 @@ class ebay_sale_order_send(osv.TransientModel):
                 'target': 'new',
             }
         else:
-            return {'type': 'ir.actions.act_window_close'}
+            return {
+            'type': 'ir.actions.act_window',
+            'name': 'Sale Orders',
+            'view_mode': 'tree,form',
+            'view_type': 'form',
+            'res_model': 'ebay.sale.order',
+        }
     
 ebay_sale_order_send()
 

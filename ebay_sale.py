@@ -214,7 +214,7 @@ class ebay_sale_order(osv.osv):
                     if not product.product_id.exists():
                         return line.write(dict(state='exception'))
                     
-             
+            sale_order_id = sale_order_obj.create(cr, uid, self._prepare_order(cr, uid, order, context=context))
             for line in order.transactions:
                 if line.ebay_item_variation_id:
                     ebay_item_id = line.ebay_item_variation_id
@@ -223,11 +223,10 @@ class ebay_sale_order(osv.osv):
                     ebay_item_id = line.ebay_item_id
                     product_ids = ebay_item_id.product_ids
                 
-                sale_order_id = sale_order_obj.create(cr, uid, self._prepare_order(cr, uid, order, context=context))
                 for product in ebay_item_id.product_ids:
                     sale_order_line_obj.create(cr, uid, self._prepare_order_line(cr, uid, order, line, sale_order_id, product, context=context))
                 line.write(dict(state='done'))
-                sale_order_obj.action_button_confirm(cr, uid, [sale_order_id], context=context)
+            sale_order_obj.action_button_confirm(cr, uid, [sale_order_id], context=context)
             order.write({'state': 'confirmed'})
     
     def action_confirm(self, cr, uid, ids, context=None):
