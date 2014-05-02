@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <openerp>
     <data>
+	
+	<menuitem id="menu_ebay_listing_bulk_actions" name="Bulk Actions" sequence="70" parent="menu_ebay_listing_activity"/>
 
         <!-- wizard view -->
 	<record model="ir.ui.view" id="ebay_item_user_item_view">
@@ -10,12 +12,11 @@
                 <form string="ebay item sync user" version="7.0">
 		    <field name="state" invisible="1"/>
 		    <separator string="Synchronize listing for the ebay user"/>
-		    <div states="option">
-			<group>
-			    <field name="ebay_user_id"/>
-			    <field name="autocreate"/>
-			</group>
-		    </div>
+		    <group states="option">
+			<field name="ebay_user_id"/>
+			<field name="revise_quantity" attrs="{'readonly': [('autocreate','=',True)]}"/>
+			<field name="autocreate"/>
+		    </group>
 		    <footer states="option">
 			<button name="action_sync" string="Synchronize" type="object" class="oe_highlight"/>
 			or
@@ -44,10 +45,10 @@
         </record>
 
         <menuitem
-            name="Sync User Items"
+            name="Sync"
             action="action_ebay_item_sync_user_view"
             id="menu_ebay_item_sync_user_view"
-            parent="menu_ebay_listing_activity"
+            parent="menu_ebay_listing_bulk_actions"
             sequence="25" groups="ebay.group_ebay_manager"/>
 	
         <record model="ir.ui.view" id="ebay_item_sync_view">
