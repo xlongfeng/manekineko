@@ -51,6 +51,49 @@
             parent="menu_ebay_listing_bulk_actions"
             sequence="25" groups="ebay.group_ebay_manager"/>
 	
+	<record model="ir.ui.view" id="ebay_item_rss_view">
+            <field name="name">ebay item rss</field>
+            <field name="model">ebay.item.rss</field>
+            <field name="arch" type="xml">
+                <form string="ebay item rss" version="7.0">
+		    <field name="state" invisible="1"/>
+		    <separator string="Export rss for the ebay user"/>
+		    <group states="option">
+			<field name="ebay_user_id"/>
+		    </group>
+		    <footer states="option">
+			<button name="action_export" string="Export" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		    <div states="download">
+			<p>Here is the delivery slip file: <field name="data" readonly="1" filename="name"/></p>
+			<p>This file was generated using the universal <strong>Unicode/UTF-8</strong> file encoding,<br/>
+			   please be sure to view and edit using the same encoding.</p> 
+		    </div>
+		    <footer states="download">
+			<button special="cancel" string="Close" type="object"/>
+		    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <record id="action_ebay_item_rss_view" model="ir.actions.act_window">
+            <field name="name">Export Inventory RSS</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">ebay.item.rss</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem
+            name="RSS"
+            action="action_ebay_item_rss_view"
+            id="menu_ebay_item_rss_view"
+            parent="menu_ebay_listing_bulk_actions"
+            sequence="26" groups="ebay.group_ebay_manager"/>
+	
         <record model="ir.ui.view" id="ebay_item_sync_view">
             <field name="name">ebay item sync</field>
             <field name="model">ebay.item.sync</field>

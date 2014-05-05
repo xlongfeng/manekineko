@@ -421,6 +421,74 @@ def split_str(s, sep):
         d.append(l.strip())
     return d
 
+class ebay_item_category(osv.osv):
+
+    def name_get(self, cr, uid, ids, context=None):
+        """Return the categories' display name, including their direct
+           parent by default.
+
+        :param dict context: the ``partner_category_display`` key can be
+                             used to select the short version of the
+                             category name (without the direct parent),
+                             when set to ``'short'``. The default is
+                             the long version."""
+        if context is None:
+            context = {}
+        if context.get('partner_category_display') == 'short':
+            return super(ebay_item_category, self).name_get(cr, uid, ids, context=context)
+        if isinstance(ids, (int, long)):
+            ids = [ids]
+        reads = self.read(cr, uid, ids, ['name', 'parent_id'], context=context)
+        res = []
+        for record in reads:
+            name = record['name']
+            if record['parent_id']:
+                name = record['parent_id'][1] + ' / ' + name
+            res.append((record['id'], name))
+        return res
+
+    def name_search(self, cr, uid, name, args=None, operator='ilike', context=None, limit=100):
+        if not args:
+            args = []
+        if not context:
+            context = {}
+        if name:
+            # Be sure name_search is symetric to name_get
+            name = name.split(' / ')[-1]
+            ids = self.search(cr, uid, [('name', operator, name)] + args, limit=limit, context=context)
+        else:
+            ids = self.search(cr, uid, args, limit=limit, context=context)
+        return self.name_get(cr, uid, ids, context)
+
+
+    def _name_get_fnc(self, cr, uid, ids, prop, unknow_none, context=None):
+        res = self.name_get(cr, uid, ids, context=context)
+        return dict(res)
+
+    _description = 'eBay Item Categories'
+    _name = 'ebay.item.category'
+    _columns = {
+        'name': fields.char('Category Name', required=True, size=64, translate=True),
+        'parent_id': fields.many2one('ebay.item.category', 'Parent Category', select=True, ondelete='cascade'),
+        'complete_name': fields.function(_name_get_fnc, type="char", string='Full Name'),
+        'child_ids': fields.one2many('ebay.item.category', 'parent_id', 'Child Categories'),
+        'active': fields.boolean('Active', help="The active field allows you to hide the category without removing it."),
+        'parent_left': fields.integer('Left parent', select=True),
+        'parent_right': fields.integer('Right parent', select=True),
+        'ebay_item_ids': fields.many2many('ebay.item', id1='ebay_item_category_id', id2='ebay_item_id', string='eBay Items'),
+    }
+    _constraints = [
+        (osv.osv._check_recursion, 'Error ! You can not create recursive categories.', ['parent_id'])
+    ]
+    _defaults = {
+        'active': 1,
+    }
+    _parent_store = True
+    _parent_order = 'name'
+    _order = 'parent_left'
+    
+ebay_item_category()
+
 class ebay_item(osv.osv):
     _name = "ebay.item"
     _description = "eBay item"
@@ -436,6 +504,12 @@ class ebay_item(osv.osv):
                 else:
                     res[record.id] = "http://cgi.ebay.com/ws/eBayISAPI.dll?ViewItem&item=%s" % record.item_id
         return res
+    
+    def _has_image(self, cr, uid, ids, name, args, context=None):
+        result = {}
+        for obj in self.browse(cr, uid, ids, context=context):
+            result[obj.id] = obj.eps_picture_ids != False
+        return result
     
     _columns = {
         #'auto_pay': fields.boolean('AutoPay'),
@@ -564,6 +638,8 @@ Secondary value1 | Secondary value2 ...
             ('HongKong', 'HongKong'),
         ], 'Site', required=True),
         'ebay_user_id': fields.many2one('ebay.user', 'Account', domain=[('ownership','=',True)], ondelete='set null'),
+        'ebay_item_category_id': fields.many2many('ebay.item.category', id1='ebay_item_id', id2='ebay_item_category_id', string='Tags'),
+        'has_image': fields.function(_has_image, type="boolean"),
     }
     
     def _get_default_buyer_requirement_details_id(self, cr, uid, context=None):
@@ -581,6 +657,14 @@ Secondary value1 | Secondary value2 ...
     def _get_default_description_tmpl_id(self, cr, uid, context=None):
         res = self.pool.get('ebay.item.description.template').search(cr, uid, [], context=context)
         return res and res[0] or False
+    
+    
+    def _default_ebay_item_category(self, cr, uid, context=None):
+        if context is None:
+            context = {}
+        if context.get('ebay_item_category_id'):
+            return [context['ebay_item_category_id']]
+        return False
     
     _defaults = {
         'buyer_requirement_details_id': _get_default_buyer_requirement_details_id,
@@ -607,6 +691,7 @@ Secondary value1 | Secondary value2 ...
         'need_to_be_updated': True,
         'site': 'US',
         'description_tmpl_id': _get_default_description_tmpl_id,
+        'ebay_item_category_id': _default_ebay_item_category,
     }
     
     def on_change_primary_category_id(self, cr, uid, id, primary_category_id, listing_type, context=None):
@@ -1487,7 +1572,8 @@ Secondary value1 | Secondary value2 ...
         return True
     
     def action_dummy(self, cr, uid, ids, context=None):
-        pass
+        for item in self.browse(cr, uid, ids, context=context):
+            pass
         
 ebay_item()
 
