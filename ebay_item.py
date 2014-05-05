@@ -978,6 +978,7 @@ Secondary value1 | Secondary value2 ...
                 member_id=user.name,
                 gallery=list(),
                 description=item.description,
+                sku=base64.b64encode(str(item.id)),
             ).replace('\r', '').replace('\n', '').replace('\t', '')
         else:
             description = item.description

@@ -537,10 +537,13 @@ class ebay_item_rss(osv.TransientModel):
             for category in item.ebay_item_category_id:
                 ebay_items.extend(category.ebay_item_ids)
             for itm in ebay_items:
-                if itm.id not in id_occupy and itm.state == 'Active' and itm.ebay_user_id.id == user.id:
+                if itm.id not in id_occupy and itm.state == 'Active' \
+                    and itm.listing_type == 'FixedPriceItem' \
+                    and itm.ebay_user_id.id == user.id:
                     id_occupy.append(itm.id)
                     rss_channel_item(channel, itm)
-                    if len(id_occupy) == 16:
+                    # 4 x 3 table
+                    if len(id_occupy) == 12 + 1:
                         break
             if len(id_occupy) > 1:
                 csv.writerow([str(item.id), rss(item_rss)])
