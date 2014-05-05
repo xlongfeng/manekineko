@@ -24,7 +24,9 @@ import sys
 import base64
 import urllib2
 
+import csv, codecs, cStringIO, gzip
 from datetime import datetime, timedelta
+import xml.etree.ElementTree as ET
 
 import openerp
 from openerp import tools
@@ -37,6 +39,65 @@ from openerp.addons.ebay.ebay_utils import *
 from ebaysdk.exception import ConnectionError, ConnectionResponseError
 from ssl import SSLError
 from requests.exceptions import RequestException
+
+class UTF8Recoder:
+    """
+    Iterator that reads an encoded stream and reencodes the input to UTF-8
+    """
+    def __init__(self, f, encoding):
+        self.reader = codecs.getreader(encoding)(f)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        return self.reader.next().encode("utf-8")
+
+class UnicodeReader:
+    """
+    A CSV reader which will iterate over lines in the CSV file "f",
+    which is encoded in the given encoding.
+    """
+
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+        f = UTF8Recoder(f, encoding)
+        self.reader = csv.reader(f, dialect=dialect, **kwds)
+
+    def next(self):
+        row = self.reader.next()
+        return [unicode(s, "utf-8") for s in row]
+
+    def __iter__(self):
+        return self
+
+class UnicodeWriter:
+    """
+    A CSV writer which will write rows to CSV file "f",
+    which is encoded in the given encoding.
+    """
+
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+        # Redirect output to a queue
+        self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        self.encoder = codecs.getincrementalencoder(encoding)()
+
+    def writerow(self, row):
+        self.writer.writerow([s.encode("utf-8") for s in row])
+        # Fetch UTF-8 output from the queue ...
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        # ... and reencode it into the target encoding
+        data = self.encoder.encode(data)
+        # write to the target stream
+        self.stream.write(data)
+        # empty queue
+        self.queue.truncate(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
 
 class ebay_item_sync_user(osv.TransientModel):
     _name = 'ebay.item.sync.user'
@@ -402,6 +463,114 @@ class ebay_item_sync_user(osv.TransientModel):
         }
 
 ebay_item_sync_user()
+
+class ebay_item_rss(osv.TransientModel):
+    _name = 'ebay.item.rss'
+    _description = 'eBay item rss'
+    
+    _columns = {
+        'ebay_user_id': fields.many2one('ebay.user', 'eBay User', required=True, domain=[('ownership','=',True)]),
+        'name': fields.char('Filename', readonly=True),
+        'data': fields.binary('File', readonly=True),
+        'state': fields.selection([
+            ('option', 'option'),
+            ('download', 'download'),
+        ], 'State'),
+    }
+    
+    _defaults = {
+        'state': 'option',
+    }
+    
+    def action_export(self, cr, uid, ids, context=None):
+        def rss(element=None):
+            if element is not None:
+                return ET.tostring(element, 'utf-8')
+            return ET.Element('rss', version='2.0')
+        
+        def rss_channel(rss):
+            rss_channel = ET.SubElement(rss, 'channel')
+            title = ET.SubElement(rss_channel, 'title')
+            title.text = 'title'
+            link = ET.SubElement(rss_channel, 'link')
+            link.text = 'link'
+            description = ET.SubElement(rss_channel, 'description')
+            description.text = 'description'
+            return rss_channel
+        
+        def rss_channel_item(channel, item):
+            channel_item = ET.SubElement(channel, 'item')
+            title = ET.SubElement(channel_item, 'title')
+            title.text = item.name
+            link = ET.SubElement(channel_item, 'link')
+            if item.ebay_user_id.sandbox:
+                link.text = "http://cgi.sandbox.ebay.com/ws/eBayISAPI.dll?ViewItem&item=%s" % item.item_id
+            else:
+                link.text = "http://cgi.ebay.com/ws/eBayISAPI.dll?ViewItem&item=%s" % item.item_id
+            description = ET.SubElement(channel_item, 'description')
+            description.text = 'description'
+            item_id = ET.SubElement(channel_item, 'itemID')
+            item_id.text = item.item_id
+            currency = ET.SubElement(channel_item, 'currency')
+            currency.text = item.currency
+            price = ET.SubElement(channel_item, 'price')
+            price.text = str(item.start_price)
+            return channel_item
+        
+        if context is None:
+            context = {}
+        ebay_item_obj = self.pool.get('ebay.item')
+        this = self.browse(cr, uid, ids)[0]
+        user = this.ebay_user_id
+        domain = [('ebay_user_id', '=', user.id)]
+        
+        fp = cStringIO.StringIO()
+        csv = UnicodeWriter(fp)
+        csv.writerow(['sku', 'rss'])
+        
+        for id in ebay_item_obj.search(cr, uid, domain, context=context):
+            item = ebay_item_obj.browse(cr, uid, id, context=context)
+            id_occupy = [item.id]
+            item_rss = rss()
+            channel = rss_channel(item_rss)
+            ebay_items = []
+            for category in item.ebay_item_category_id:
+                ebay_items.extend(category.ebay_item_ids)
+            for itm in ebay_items:
+                if itm.id not in id_occupy and itm.state == 'Active' and itm.ebay_user_id.id == user.id:
+                    id_occupy.append(itm.id)
+                    rss_channel_item(channel, itm)
+                    if len(id_occupy) == 16:
+                        break
+            if len(id_occupy) > 1:
+                csv.writerow([str(item.id), rss(item_rss)])
+                
+        gz_data = cStringIO.StringIO()
+        gz = gzip.GzipFile(filename='dandelion-rss', mode='wb', fileobj=gz_data)
+        gz.write(fp.getvalue())
+        gz.close()
+        
+        out = base64.encodestring(gz_data.getvalue())
+        gz_data.close()
+        fp.close()
+        
+        this.name = "dandelion-rss-%s.gz" % (datetime.now().strftime('%Y%m%d-%H%M%S'))
+        self.write(cr, uid, this.id, {'state': 'download',
+                                  'data': out,
+                                  'name': this.name}, context=context)
+        
+        return {
+            'name': "Export Inventory RSS",
+            'type': 'ir.actions.act_window',
+            'res_model': 'ebay.item.rss',
+            'view_mode': 'form',
+            'view_type': 'form',
+            'res_id': this.id,
+            'views': [(False, 'form')],
+            'target': 'new',
+        }
+    
+ebay_item_rss()
 
 class ebay_item_sync(osv.TransientModel):
     _name = 'ebay.item.sync'

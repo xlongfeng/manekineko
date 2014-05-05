@@ -46,6 +46,7 @@
                                 <div class="oe_title" attrs="{'invisible': [('parent_id','!=',False)]}">
                                     <field name="store_category2name" placeholder="2nd Store Category" class="oe_title"/>
                                 </div>
+                                <field name="ebay_item_category_id" widget="many2many_tags" placeholder="Tags..." attrs="{'invisible': [('parent_id','!=',False)]}"/>
                             </div>
                         </group>
                         <group>
@@ -285,6 +286,40 @@
             </field>
         </record>
         
+        <record model="ir.ui.view" id="ebay_item_kanban_view">
+            <field name="name">ebay item kanban</field>
+            <field name="model">ebay.item</field>
+            <field name="arch" type="xml">
+                <kanban>
+                    <field name="name"/>
+                    <field name="ebay_item_category_id"/>
+                    <field name="has_image"/>
+                    <templates>
+                        <t t-name="kanban-box">
+                            <div class="oe_kanban_vignette oe_semantic_html_override">
+                                <a type="open">
+                                    <t t-if="record.has_image.raw_value === true">
+                                        <img t-att-src="kanban_image('ebay.item', 'image_small', record.id.value)" class="oe_kanban_image"/>
+                                    </t>
+                                    <t t-if="record.has_image.raw_value === false">
+                                        <img t-att-src='_s + "/base/static/src/img/avatar.png"' class="oe_kanban_image"/>
+                                    </t>
+                                </a>
+                                <div class="oe_kanban_details">
+                                    <h4 class="oe_partner_heading"><a type="open"><field name="name"/></a></h4>
+                                    <div class="oe_kanban_partner_categories">
+                                        <span class="oe_kanban_list_many2many">
+                                            <field name="ebay_item_category_id"/>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+        
         <record id="view_ebay_item_filter" model="ir.ui.view">
             <field name="name">ebay item select</field>
             <field name="model">ebay.item</field>
@@ -309,10 +344,64 @@
             <field name="name">Inventory</field>
             <field name="res_model">ebay.item</field>
             <field name="view_type">form</field>
-            <field name="view_mode">tree,form</field>
+            <field name="view_mode">tree,form,kanban</field>
             <field name="domain">[('parent_id','=',False)]</field>
         </record>
         <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="menu_ebay_listing_activity"/>
+        
+        <!-- eBay Item Categories -->
+        <record id="view_ebay_item_category_form" model="ir.ui.view">
+            <field name="name">eBay Item Categories</field>
+            <field name="model">ebay.item.category</field>
+            <field name="arch" type="xml">
+                <form string="eBay Item Category" version="7.0">
+                    <group col="4">
+                        <field name="name"/>
+                        <field name="active"/>
+                        <field name="parent_id"/>
+                    </group>
+                </form>
+            </field>
+        </record>
+        
+        <record id="view_ebay_item_category_list" model="ir.ui.view">
+            <field name="name">eBay Item Categories</field>
+            <field name="model">ebay.item.category</field>
+            <field eval="6" name="priority"/>
+            <field name="arch" type="xml">
+                <tree string="eBay Item Categories">
+                    <field name="complete_name"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record id="view_ebay_item_category_tree" model="ir.ui.view">
+            <field name="name">ebay.item.category.tree</field>
+            <field name="model">ebay.item.category</field>
+            <field name="field_parent">child_ids</field>
+            <field name="arch" type="xml">
+                <tree toolbar="1" string="eBay Item Categories">
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+        
+        <record id="action_ebay_item_category_form" model="ir.actions.act_window">
+            <field name="name">eBay Item Categories</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">ebay.item.category</field>
+            <field name="view_type">form</field>
+            <field name="help" type="html">
+              <p class="oe_view_nocontent_create">
+                Click to create a new inventory category.
+              </p><p>
+                Manage the ebay item categories in order to better classify them for tracking and analysis purposes.
+                An inventory may belong to several categories and categories have a hierarchy structure: an inventory belonging to a category also belong to his parent category.
+              </p>
+            </field>
+        </record>
+        
+        <menuitem action="action_ebay_item_category_form" id="menu_ebay_item_category_form" name="Inventory Tags" sequence="21" parent="menu_ebay_listing_activity"/>
         
         <record model="ir.ui.view" id="ebay_product_form_view">
             <field name="name">ebay product form</field>

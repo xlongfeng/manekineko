@@ -13,6 +13,8 @@ access_ebay_sale_order_transaction_user,ebay.sale.order.transaction.user,model_e
 access_ebay_sale_order_transaction_manager,ebay.sale.order.transaction.manager,model_ebay_sale_order_transaction,ebay.group_ebay_manager,1,1,1,1
 access_ebay_item_user,ebay.item.user,model_ebay_item,ebay.group_ebay_user,1,0,0,0
 access_ebay_item_manager,ebay.item.manager,model_ebay_item,ebay.group_ebay_manager,1,1,1,1
+access_ebay_item_category_user,ebay.item.category.user,model_ebay_item_category,ebay.group_ebay_user,1,0,0,0
+access_ebay_item_category_manager,ebay.item.category.manager,model_ebay_item_category,ebay.group_ebay_manager,1,1,1,1
 access_ebay_item_description_template_user,ebay.item.description.template.user,model_ebay_item_description_template,ebay.group_ebay_user,1,0,0,0
 access_ebay_item_description_template_manager,ebay.item.description.template.manager,model_ebay_item_description_template,ebay.group_ebay_manager,1,1,1,1
 access_ebay_product_user,ebay.product.user,model_ebay_product,ebay.group_ebay_user,1,0,0,0
