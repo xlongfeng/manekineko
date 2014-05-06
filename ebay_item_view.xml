@@ -292,6 +292,13 @@
             <field name="arch" type="xml">
                 <kanban>
                     <field name="name"/>
+                    <field name="listing_type"/>
+                    <field name="start_price"/>
+                    <field name="item_id"/>
+                    <field name="quantity_sold"/>
+                    <field name="quantity_surplus"/>
+                    <field name="view_item_url"/>
+                    <field name="state"/>
                     <field name="ebay_item_category_id"/>
                     <field name="has_image"/>
                     <templates>
@@ -299,7 +306,7 @@
                             <div class="oe_kanban_vignette oe_semantic_html_override">
                                 <a type="open">
                                     <t t-if="record.has_image.raw_value === true">
-                                        <img t-att-src="kanban_image('ebay.item', 'image_small', record.id.value)" class="oe_kanban_image"/>
+                                        <img t-att-src="kanban_image('ebay.item', 'image', record.id.value)" class="oe_kanban_image"/>
                                     </t>
                                     <t t-if="record.has_image.raw_value === false">
                                         <img t-att-src='_s + "/base/static/src/img/avatar.png"' class="oe_kanban_image"/>
@@ -312,6 +319,11 @@
                                             <field name="ebay_item_category_id"/>
                                         </span>
                                     </div>
+                                    <ul>
+                                        <li><field name="listing_type"/> <field name="start_price"/></li>
+                                        <li t-if="record.state.raw_value == 'Active'"><field name="quantity_surplus"/> available / <field name="quantity_sold"/> sold</li>
+                                        <li t-if="record.item_id.raw_value"><a t-attf-href="{record.view_item_url.raw_value}" t-attf-target="_blank">View Online</a></li>
+                                    </ul>
                                 </div>
                             </div>
                         </t>
@@ -344,7 +356,7 @@
             <field name="name">Inventory</field>
             <field name="res_model">ebay.item</field>
             <field name="view_type">form</field>
-            <field name="view_mode">tree,form,kanban</field>
+            <field name="view_mode">kanban,tree,form</field>
             <field name="domain">[('parent_id','=',False)]</field>
         </record>
         <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="menu_ebay_listing_activity"/>

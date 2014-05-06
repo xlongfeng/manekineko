@@ -496,7 +496,7 @@ class ebay_item(osv.osv):
     def _get_item_view_url(self, cr, uid, ids, field_name, arg, context):
         if context is None:
             context = {}
-        res = {}
+        res = dict.fromkeys(ids, False)
         for record in self.browse(cr, uid, ids, context=context):
             if record.item_id:
                 if record.ebay_user_id.sandbox:
@@ -504,6 +504,12 @@ class ebay_item(osv.osv):
                 else:
                     res[record.id] = "http://cgi.ebay.com/ws/eBayISAPI.dll?ViewItem&item=%s" % record.item_id
         return res
+    
+    def _get_image(self, cr, uid, ids, name, args, context=None):
+        result = dict.fromkeys(ids, False)
+        for obj in self.browse(cr, uid, ids, context=context):
+            result[obj.id] = obj.eps_picture_ids[0][name]
+        return result
     
     def _has_image(self, cr, uid, ids, name, args, context=None):
         result = {}
@@ -639,6 +645,7 @@ Secondary value1 | Secondary value2 ...
         ], 'Site', required=True),
         'ebay_user_id': fields.many2one('ebay.user', 'Account', domain=[('ownership','=',True)], ondelete='set null'),
         'ebay_item_category_id': fields.many2many('ebay.item.category', id1='ebay_item_id', id2='ebay_item_category_id', string='Tags'),
+        'image': fields.function(_get_image, type="binary", method="True", string='Image'),
         'has_image': fields.function(_has_image, type="boolean"),
     }
     
