@@ -336,11 +336,25 @@ class ebay_item_sync_user(osv.TransientModel):
         ebay_item_obj = self.pool.get('ebay.item')
         id = variation.SKU if variation.has_key('SKU') and variation.SKU.isdigit() else ''
         if id:
+            def get_specifices_set(name_value_list):
+                variation_specifics_set = ''
+                if type(name_value_list) != list:
+                    name_value_list = [name_value_list]
+                for name_value in name_value_list:
+                    values = name_value.Value
+                    if type(values) != list:
+                        values = [values]
+                    if variation_specifics_set:
+                        variation_specifics_set += '\n'
+                    variation_specifics_set += '|'.join(values)
+                return variation_specifics_set
+            variation_specifics = get_specifices_set(variation.VariationSpecifics.NameValueList)
+            specific_values = ebay_str_split(variation_specifics, '\n')
             ebay_item_obj.write(cr, uid, int(id), dict(
+                name="[%s]" % ']['.join(specific_values),
                 quantity_sold=variation.SellingStatus.QuantitySold,
                 quantity_surplus=int(variation.Quantity) - int(variation.SellingStatus.QuantitySold)
             ),context=context)
-            ebay_item = ebay_item_obj.browse(cr, uid, int(id), context=context)
     
     def update_inventory(self, cr, uid, this, user, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
@@ -603,6 +617,25 @@ class ebay_item_report(osv.TransientModel):
     }
     
     def action_report(self, cr, uid, ids, context=None):
+        def write_row(worksheet, row, content):
+            for i, cell in enumerate(content):
+                if row % 2:
+                    worksheet.write(row, i, cell, xlwt.easyxf('pattern: pattern solid, fore_color light_green;'))
+                else:
+                    worksheet.write(row, i, cell)
+        
+        def item_product(item):
+            if not item.product_ids:
+                return ''
+            
+            products = ''
+            for product in item.product_ids:
+                if products:
+                    products += '\n'
+                products += '%s (x %d' % (product.product_id.name, product.uos_coeff)
+                
+            return products
+        
         headers = [
             ('Title', (1 + 80) * 256),
             ('Status', (1 + 16) * 256),
@@ -613,7 +646,7 @@ class ebay_item_report(osv.TransientModel):
             ('Quantity', (1 + 16) * 256),
             ('Quantity Surplus', (1 + 16) * 256),
             ('Quantity Sold', (1 + 16) * 256),
-            ('Product', (1 + 80) * 256),
+            ('Product', (1 + 60) * 256),
         ]
         workbook = xlwt.Workbook(encoding='utf-8')
         worksheet = workbook.add_sheet('Inventory Report')
@@ -630,15 +663,43 @@ class ebay_item_report(osv.TransientModel):
         if listing_type:
             domain.append(('listing_type', '=', listing_type))
         if listing_status:
-            domain.append(('listing_status', '=', listing_status))
+            domain.append(('state', '=', listing_status))
         
+        row = 1
         for id in ebay_item_obj.search(cr, uid, domain, context=context):
             item = ebay_item_obj.browse(cr, uid, id, context=context)
-            title = item.name
-            if not item.variation_invalid and item.variation:
-                pass
+            name = item.name
+            if not item.variation_invalid and item.variation and item.child_ids:
+                for child in item.child_ids:
+                    title = '%s %s' % (item.name, child.name)
+                    write_row(worksheet, row, [
+                            title,
+                            item.state,
+                            item.listing_type,
+                            item.listing_duration,
+                            child.start_price,
+                            None,
+                            child.quantity,
+                            child.quantity_surplus,
+                            child.quantity_sold,
+                            item_product(child),
+                        ])
+                    row += 1
             else:
-                pass
+                title = item.name
+                write_row(worksheet, row, [
+                        title,
+                        item.state,
+                        item.listing_type,
+                        item.listing_duration,
+                        item.start_price,
+                        item.buy_it_now_price if item.buy_it_now_price and item.listing_type == 'Chinese' else None,
+                        item.quantity,
+                        item.quantity_surplus,
+                        item.quantity_sold,
+                        item_product(item),
+                    ])
+                row += 1
             
         fp = cStringIO.StringIO()
         workbook.save(fp)
