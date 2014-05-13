@@ -628,7 +628,7 @@ Secondary value1 | Secondary value2 ...
         'need_to_be_updated': fields.boolean('Need to be updated'),
         'revise_date': fields.datetime('Revise Date', readonly=True),
         'update_date': fields.datetime('Update Date', readonly=True),
-        'view_item_url': fields.function(_get_item_view_url, type='char', method="True", string='View Item'),
+        'view_item_url': fields.function(_get_item_view_url, type='char', method=True, string='View Item'),
         'watch_count': fields.integer('Watch Count', readonly=True),
         'severity_code_error': fields.boolean('Severity Code Error', readonly=True),
         'severity_code_warning': fields.boolean('Severity Code Warning', readonly=True),
@@ -645,7 +645,7 @@ Secondary value1 | Secondary value2 ...
         ], 'Site', required=True),
         'ebay_user_id': fields.many2one('ebay.user', 'Account', domain=[('ownership','=',True)], ondelete='set null'),
         'ebay_item_category_id': fields.many2many('ebay.item.category', id1='ebay_item_id', id2='ebay_item_category_id', string='Tags'),
-        'image': fields.function(_get_image, type="binary", method="True", string='Image'),
+        'image': fields.function(_get_image, type="binary", method=True, string='Image'),
         'has_image': fields.function(_has_image, type="boolean"),
     }
     
@@ -1022,14 +1022,14 @@ Secondary value1 | Secondary value2 ...
             if len(picture_url) == 1:
                 item_dict['Item']['PictureDetails'] = dict(
                     GalleryType='Gallery',
-                    PhotoDisplay='PicturePack',
+                    PhotoDisplay='SuperSize',
                     PictureSource='EPS',
                     PictureURL=picture_url[0],
                 )
             elif len(picture_url) > 1:
                 item_dict['Item']['PictureDetails'] = dict(
                     GalleryType='Gallery',
-                    PhotoDisplay='PicturePack',
+                    PhotoDisplay='SuperSize',
                     PictureSource='EPS',
                     PictureURL=picture_url,
                 )

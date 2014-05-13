@@ -23,7 +23,7 @@ import os
 import sys
 import base64
 import urllib2
-
+import xlwt
 import csv, codecs, cStringIO, gzip
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
@@ -574,6 +574,93 @@ class ebay_item_rss(osv.TransientModel):
         }
     
 ebay_item_rss()
+
+class ebay_item_report(osv.TransientModel):
+    _name = 'ebay.item.report'
+    _description = 'eBay item report'
+    
+    _columns = {
+        'listing_type': fields.selection([
+            ('Chinese', 'Auction'),
+            ('FixedPriceItem', 'Fixed Price'),
+        ], 'Format'),
+        'listing_status': fields.selection([
+            ('Draft', 'Draft'),
+            ('Active', 'Active'),
+            ('Completed', 'Completed'),
+            ('Ended', 'Ended'),
+        ], 'Status'),
+        'name': fields.char('Filename', readonly=True),
+        'data': fields.binary('File', readonly=True),
+        'state': fields.selection([
+            ('option', 'option'),
+            ('download', 'download'),
+        ], 'State'),
+    }
+    
+    _defaults = {
+        'state': 'option',
+    }
+    
+    def action_report(self, cr, uid, ids, context=None):
+        headers = [
+            ('Title', (1 + 80) * 256),
+            ('Status', (1 + 16) * 256),
+            ('Format', (1 + 16) * 256),
+            ('Duration', (1 + 8) * 256),
+            ('Start Price', (1 + 16) * 256),
+            ('Buy It Now Price', (1 + 16) * 256),
+            ('Quantity', (1 + 16) * 256),
+            ('Quantity Surplus', (1 + 16) * 256),
+            ('Quantity Sold', (1 + 16) * 256),
+            ('Product', (1 + 80) * 256),
+        ]
+        workbook = xlwt.Workbook(encoding='utf-8')
+        worksheet = workbook.add_sheet('Inventory Report')
+        for i, name in enumerate(headers):
+            worksheet.write(0, i, name[0])
+            worksheet.col(i).width = name[1]
+        if context is None:
+            context = {}
+        ebay_item_obj = self.pool.get('ebay.item')
+        this = self.browse(cr, uid, ids)[0]
+        listing_type = this.listing_type
+        listing_status = this.listing_status
+        domain = [('parent_id', '=', False)]
+        if listing_type:
+            domain.append(('listing_type', '=', listing_type))
+        if listing_status:
+            domain.append(('listing_status', '=', listing_status))
+        
+        for id in ebay_item_obj.search(cr, uid, domain, context=context):
+            item = ebay_item_obj.browse(cr, uid, id, context=context)
+            title = item.name
+            if not item.variation_invalid and item.variation:
+                pass
+            else:
+                pass
+            
+        fp = cStringIO.StringIO()
+        workbook.save(fp)
+        out = base64.encodestring(fp.getvalue())
+        fp.close()
+        this.name = "inventory-report-%s.xls" % (datetime.now().strftime('%Y%m%d-%H%M%S'))
+        self.write(cr, uid, this.id, {'state': 'download',
+                                  'data': out,
+                                  'name': this.name}, context=context)
+        
+        return {
+            'name': "Inventory Report",
+            'type': 'ir.actions.act_window',
+            'res_model': 'ebay.item.report',
+            'view_mode': 'form',
+            'view_type': 'form',
+            'res_id': this.id,
+            'views': [(False, 'form')],
+            'target': 'new',
+        }
+    
+ebay_item_report()
 
 class ebay_item_sync(osv.TransientModel):
     _name = 'ebay.item.sync'

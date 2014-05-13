@@ -88,7 +88,7 @@ class ebay_seller_list(osv.osv):
         'user_id': fields.many2one('ebay.user', 'Seller', ondelete='cascade'),
         
         # Additional Info
-        'thumbnail': fields.function(_get_thumbnail, type='binary', method="True", string="Thumbnail"),
+        'thumbnail': fields.function(_get_thumbnail, type='binary', method=True, string="Thumbnail"),
         'picture': fields.html('Picture', readonly=True),
         'average_monthly_sales': fields.integer('Average Monthly Sales', readonly=True),
     }

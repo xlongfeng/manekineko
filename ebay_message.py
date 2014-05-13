@@ -390,7 +390,7 @@ class ebay_message(osv.osv):
             ('CustomCode', 'CustomCode'),
             ('Unanswered', 'Unanswered'),
             ('Answered', 'Answered'),], 'MessageStatus', readonly=True),
-        'chat': fields.function(_get_message_chat, type='text', method="True", string='Chat', readonly=True),
+        'chat': fields.function(_get_message_chat, type='text', method=True, string='Chat', readonly=True),
         'type': fields.selection([
             ('in', 'in'),
             ('out', 'out'),

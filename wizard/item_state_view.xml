@@ -94,6 +94,50 @@
             parent="menu_ebay_listing_bulk_actions"
             sequence="26" groups="ebay.group_ebay_manager"/>
 	
+	<record model="ir.ui.view" id="ebay_item_report_view">
+            <field name="name">ebay item report</field>
+            <field name="model">ebay.item.report</field>
+            <field name="arch" type="xml">
+                <form string="ebay item report" version="7.0">
+		    <field name="state" invisible="1"/>
+		    <separator string="Inventory Report"/>
+		    <group states="option">
+			<field name="listing_type"/>
+			<field name="listing_status"/>
+		    </group>
+		    <footer states="option">
+			<button name="action_report" string="Report" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		    <div states="download">
+			<p>Here is the report file: <field name="data" readonly="1" filename="name"/></p>
+			<p>This file was generated using the universal <strong>Unicode/UTF-8</strong> file encoding,<br/>
+			   please be sure to view and edit using the same encoding.</p> 
+		    </div>
+		    <footer states="download">
+			<button special="cancel" string="Close" type="object"/>
+		    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <record id="action_ebay_item_report_view" model="ir.actions.act_window">
+            <field name="name">Inventory Report</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">ebay.item.report</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
+        <menuitem
+            name="Report"
+            action="action_ebay_item_report_view"
+            id="menu_ebay_item_report_view"
+            parent="menu_ebay_listing_bulk_actions"
+            sequence="27" groups="ebay.group_ebay_manager"/>
+	
         <record model="ir.ui.view" id="ebay_item_sync_view">
             <field name="name">ebay item sync</field>
             <field name="model">ebay.item.sync</field>

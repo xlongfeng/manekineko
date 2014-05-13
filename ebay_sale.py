@@ -346,7 +346,7 @@ class ebay_sale_order_transaction(osv.osv):
         'order_id': fields.many2one('ebay.sale.order', 'Order Reference', required=True, ondelete='cascade', select=True, readonly=True, states={'draft':[('readonly',False)]}),
         'ebay_item_id': fields.many2one('ebay.item', 'Item', change_default=True, ondelete='set null'),
         'ebay_item_variation_id': fields.many2one('ebay.item', 'Variation', domain="[('parent_id', '=', ebay_item_id)]", change_default=True, ondelete='set null'),
-        'variation': fields.function(_get_variation, type='boolean', method="True", string='Variation'),
+        'variation': fields.function(_get_variation, type='boolean', method=True, string='Variation'),
         'broken': fields.boolean('Broken'),
         'order_partner_id': fields.related('order_id', 'partner_id', type='many2one', relation='res.partner', store=True, string='Customer'),
         'ebay_user_id':fields.related('order_id', 'ebay_user_id', type='many2one', relation='ebay.user', store=True, string='eBay User'),
