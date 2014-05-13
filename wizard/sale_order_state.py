@@ -278,15 +278,15 @@ class ebay_sale_order_print(osv.TransientModel):
         headers = [
             'Order Number',
             'Product',
-            'Message',
             'Description',
+            'Message',
         ]
         
         header_width = {
             'Order Number': (1 + 16) * 256,
             'Product': (1 + 56) * 256,
-            'Message': (1 + 56) * 256,
             'Description': (1 + 80) * 256,
+            'Message': (1 + 56) * 256,
         }
         
         easyxf = [

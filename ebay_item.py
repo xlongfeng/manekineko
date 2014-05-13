@@ -1557,7 +1557,7 @@ Secondary value1 | Secondary value2 ...
             call_data = dict()
             call_data['EndingReason'] = 'NotAvailable'
             call_data['ItemID'] = item.item_id
-            api = self.trading_api(cr, uid, user, item, call_name, item_dict, context=context)
+            api = self.trading_api(cr, uid, user, item, call_name, call_data, context=context)
             if api == True:
                 continue
             elif api == False:

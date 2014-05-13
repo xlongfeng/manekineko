@@ -162,7 +162,8 @@ class get_order(osv.TransientModel):
                             vals['cs_payment_method'] = checkout_status.PaymentMethod
                             vals['cs_status'] = checkout_status.Status
                             vals['order_status'] = order.OrderStatus
-                            vals['paid_time'] = order.PaidTime
+                            if order.has_key('PaidTime'):
+                                vals['paid_time'] = order.PaidTime
                             vals['payment_hold_status'] = order.PaymentHoldStatus
                             vals['sd_record_number'] = order.ShippingDetails.SellingManagerSalesRecordNumber
                             vals['shipped_time'] = order.ShippedTime
