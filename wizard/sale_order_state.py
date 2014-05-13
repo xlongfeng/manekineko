@@ -278,14 +278,25 @@ class ebay_sale_order_print(osv.TransientModel):
         headers = [
             'Order Number',
             'Product',
+            'Message',
             'Description',
         ]
         
         header_width = {
             'Order Number': (1 + 16) * 256,
             'Product': (1 + 56) * 256,
+            'Message': (1 + 56) * 256,
             'Description': (1 + 80) * 256,
         }
+        
+        easyxf = [
+            xlwt.easyxf('pattern: pattern solid, fore_color light_blue;'),
+            xlwt.easyxf('pattern: pattern solid, fore_color light_green;'),
+            xlwt.easyxf('pattern: pattern solid, fore_color gray40;'),
+            xlwt.easyxf('pattern: pattern solid, fore_color light_yellow;'),
+            xlwt.easyxf('pattern: pattern solid, fore_color light_orange;'),
+            xlwt.easyxf('pattern: pattern solid, fore_color light_turquoise;'),
+        ]
         
         for i, name in enumerate(headers):
             worksheet.write(0, i, name)
@@ -305,9 +316,12 @@ class ebay_sale_order_print(osv.TransientModel):
                         description += '\n'
                     product += '%s ( x%d )' % (line.product_id.name, line.product_uom_qty)
                     description += line.name
+                message = slip['ebay_sale_order'].buyer_checkout_message
+                message = message if message else ''
                 order = {
                     'Order Number': slip['ref'],
                     'Product': product,
+                    'Message': message,
                     'Description': description,
                 }
                 return order
@@ -315,10 +329,7 @@ class ebay_sale_order_print(osv.TransientModel):
             order = _prepare_order(slip)
             for key, value in order.items():
                 col = headers.index(key)
-                if row % 2:
-                    worksheet.write(row, col, value, xlwt.easyxf('pattern: pattern solid, fore_color light_green;'))
-                else:
-                    worksheet.write(row, col, value)
+                worksheet.write(row, col, value, easyxf[row % 6])
     
     def action_print(self, cr, uid, ids, context=None):
         if context is None:
