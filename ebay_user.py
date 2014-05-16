@@ -29,8 +29,6 @@ from operator import itemgetter
 import time
 import pytz
 
-from requests import exceptions
-
 from openerp import SUPERUSER_ID
 from openerp import pooler, tools
 from openerp.osv import fields, osv, orm
@@ -46,7 +44,6 @@ import json
 
 import ebaysdk
 from ebaysdk.exception import ConnectionError, ConnectionResponseError
-from ssl import SSLError
 from requests.exceptions import RequestException
 
 _logger = logging.getLogger(__name__)
@@ -322,7 +319,7 @@ Hi friend.
         try:
             for user in self.browse(cr, uid, ids, context=context):
                 ebay_seller_list_obj.get_seller_list(cr, uid, user, context=context)
-        except (ConnectionError, ConnectionResponseError, RequestException, SSLError) as e:
+        except (ConnectionError, ConnectionResponseError, RequestException) as e:
             return self.pool.get('ebay.ebay').exception(cr, uid, 'GetSellerList', e, context=context)
         else:
             return True
