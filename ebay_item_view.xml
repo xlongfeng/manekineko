@@ -16,6 +16,7 @@
                         <button class="oe_highlight" name="action_upload" confirm='Are you sure you want to upload this item?' states="Draft,Completed,Ended" string="Upload Item" type="object" groups="ebay.group_ebay_manager"/>
                         <button class="oe_highlight" name="action_revise" confirm='Are you sure you want to revise this item?' states="Active" string="Revise" type="object" groups="ebay.group_ebay_manager"/>
                         <button class="oe_highlight" name="action_synchronize" states="Active,Completed,Ended" string="Synchronize" type="object" groups="ebay.group_ebay_manager"/>
+                        <button name="action_renew_uuid" confirm='Are you sure you want to renew uuid for this item?'  states="Completed,Ended" string="Renew UUID" type="object" groups="ebay.group_ebay_manager"/>
                         <button name="action_end_listing" confirm='Are you sure you want to end this item?' states="Active" string="End Listing" type="object" groups="ebay.group_ebay_manager"/>
                         <field name="state" widget="statusbar"/>
                     </header>
@@ -339,7 +340,10 @@
                 <search string="Search Item">
                     <filter icon="terp-document-new" string="Draft" domain="[('state','in',('Draft',))]"/>
                     <filter icon="terp-check" string="Active" domain="[('state','in',('Active',))]"/>
-                    <filter icon="terp-dolar_ok!" string="Completed" domain="[('state','in',('Completed','Ended'))]"/>
+                    <filter icon="terp-check" string="Completed" domain="[('state','in',('Completed','Ended'))]"/>
+                    <separator/>
+                    <filter icon="terp-check" string="Auction" domain="[('listing_type','=','Chinese')]"/>
+                    <filter icon="terp-check" string="Fixed Price" domain="[('listing_type','=','FixedPriceItem')]"/>
                     <separator/>
                     <field name="name"/>
                     <group expand="0" string="Group By...">
@@ -356,7 +360,7 @@
             <field name="name">Inventory</field>
             <field name="res_model">ebay.item</field>
             <field name="view_type">form</field>
-            <field name="view_mode">kanban,tree,form</field>
+            <field name="view_mode">tree,form,kanban</field>
             <field name="domain">[('parent_id','=',False)]</field>
         </record>
         <menuitem id="ebay_menu_item" action="action_ebay_item_tree" sequence="20" parent="menu_ebay_listing_activity"/>

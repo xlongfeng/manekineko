@@ -154,13 +154,14 @@
                     <button name="action_open_message" attrs="{'invisible': [('buyer_checkout_message','=',False)]}" string="Message" type="object" icon="terp-mail-message-new" help="Message"/>
                     <field name="name"/>
                     <field name="buyer_user_id"/>
-                    <field name="cs_ebay_payment_status"/>
-                    <field name="cs_status"/>
-                    <field name="amount_paid"/>
-                    <field name="created_time"/>
                     <field name="state"/>
+                    <field name="cs_ebay_payment_status" invisible="1"/>
+                    <field name="cs_status" invisible="1"/>
+                    <field name="amount_paid"/>
+                    <field name="created_time" invisible="1"/>
                     <field name="cancel_reason"/>
                     <field name="after_service_duration"/>
+                    <field name="transaction_details"/>
                 </tree>
             </field>
         </record>

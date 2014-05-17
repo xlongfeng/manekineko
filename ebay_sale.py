@@ -41,6 +41,18 @@ class ebay_sale_order(osv.osv):
     
     def _get_shipping_service_type(self, cr, uid, context=None):
         return self.pool.get('ebay.user').get_shipping_service_type()
+    
+    def _get_transaction_details(self, cr, uid, ids, name, args, context=None):
+        result = dict.fromkeys(ids, False)
+        for obj in self.browse(cr, uid, ids, context=context):
+            if obj.transactions:
+                details = ''
+                for transaction in obj.transactions:
+                    if details:
+                        details += '\n'
+                    details += '%s (x%d' % (transaction.name, transaction.quantity_purchased)
+                result[obj.id] = details
+        return result
 
     _columns = {
         'name': fields.char('Order Reference', size=64, required=True,
@@ -116,9 +128,7 @@ class ebay_sale_order(osv.osv):
         'transactions': fields.one2many('ebay.sale.order.transaction', 'order_id', 'Transactions', readonly=True, states={'draft': [('readonly', False)]}),
         'partner_id': fields.many2one('res.partner', 'Customer', readonly=True, states={'draft': [('readonly', False)], 'sent': [('readonly', False)]}, required=True, change_default=True, select=True, track_visibility='always'),
         'ebay_user_id': fields.many2one('ebay.user', 'eBay User', states={'draft': [('readonly', False)], 'sent': [('readonly', False)]}, select=True, track_visibility='onchange'),
-        'shipping_service': fields.selection(
-            _get_shipping_service_type, 'Shipping service', readonly=True, states={'draft': [('readonly', False)], 'progress': [('readonly', False)], 'pending': [('readonly', False)]}
-        ),
+        'shipping_service': fields.selection(_get_shipping_service_type, 'Shipping service'),
         'state': fields.selection([
             ('draft', 'Draft'),
             ('confirmed', 'Waiting Availability'),
@@ -136,6 +146,7 @@ class ebay_sale_order(osv.osv):
             ('25', '25 days'),
         ], 'Duration', readonly=True, help='After Service Duration'),
         'sale_order_ids': fields.one2many('sale.order', 'ebay_sale_order_id', 'Sale Orders', readonly=True),
+        'transaction_details': fields.function(_get_transaction_details, type="text", method=True, string='Transaction Details'),
     }
     
     _defaults = {

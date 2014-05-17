@@ -814,6 +814,9 @@ Secondary value1 | Secondary value2 ...
         ])
         if len(keywords & set(vals.keys())) > 0 or vals.get('variation_modify_specific_name', ''):
             vals['need_to_be_updated'] = True
+        state = vals.get('state')
+        if 'state' in ('Completed', 'Ended'):
+            vals['uuid'] = uuid.uuid1().hex
         return super(ebay_item, self).write(cr, uid, ids, vals, context=context)
     
     def upload_pictures(self, cr, uid, user, eps_pictures, context=None):
@@ -1544,6 +1547,14 @@ Secondary value1 | Secondary value2 ...
             if varations:
                 for varation in varations:
                     eps_picture_fetch(varation)
+        return True
+    
+    def action_renew_uuid(self, cr, uid, ids, context=None):
+        for item in self.browse(cr, uid, ids, context=context):
+            if item.state not in ('Completed','Ended'):
+                continue
+            item.write(dict(uuid=uuid.uuid1().hex))
+        
         return True
         
     def action_end_listing(self, cr, uid, ids, context=None):

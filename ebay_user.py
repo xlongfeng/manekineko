@@ -128,10 +128,12 @@ class ebay_user(osv.osv):
     @staticmethod
     def get_shipping_service_type():
         return [
-            ('hkam', _('HongKongPost Normal Air Mail')),
-            ('hkram', _('HongKongPost Registered AirMail')),
-            ('sgam', _('SingPost Normal Air Mail')),
-            ('sgram', _('SingPost Registered AirMail')),
+            ('cnam', _('China Post Normal Air Mail')),
+            ('cnram', _('China Post Registered Air Mail')),
+            ('hkam', _('HongKong Post Normal Air Mail')),
+            ('hkram', _('HongKong Post Registered Air Mail')),
+            ('sgam', _('Sing Post Normal Air Mail')),
+            ('sgram', _('Sing Post Registered Air Mail')),
         ]
     def _get_shipping_service_type(self, cr, uid, context=None):
         return self.get_shipping_service_type()

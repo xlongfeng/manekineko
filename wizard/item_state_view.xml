@@ -102,8 +102,8 @@
 		    <field name="state" invisible="1"/>
 		    <separator string="Inventory Report"/>
 		    <group states="option">
-			<field name="listing_type"/>
 			<field name="listing_status"/>
+			<field name="listing_type"/>
 		    </group>
 		    <footer states="option">
 			<button name="action_report" string="Report" type="object" class="oe_highlight"/>
