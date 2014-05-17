@@ -67,6 +67,7 @@
             <field name="model">ebay.seller.list</field>
             <field name="arch" type="xml">
                 <search string="Search Seller List">
+                    <field name="name"/>
                     <field name="user_id"/>
                </search>
             </field>
