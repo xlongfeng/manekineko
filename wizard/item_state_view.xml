@@ -218,6 +218,33 @@
             key2="client_action_multi" name="End"
             res_model="ebay.item.end" src_model="ebay.item"
             view_mode="form" target="new" view_type="form" view_id="ebay_item_end_view" groups="ebay.group_ebay_manager"/>
+	
+	<record model="ir.ui.view" id="ebay_item_upload_view">
+            <field name="name">ebay item upload</field>
+            <field name="model">ebay.item.upload</field>
+            <field name="arch" type="xml">
+                <form string="ebay item upload" version="7.0">
+		    <separator string="Upload Items"/>
+		    <group>
+			<field name="count"/>
+		    </group>
+		    <p class="oe_grey">
+			This may take a very long time, please be patient to wait accomplish.
+		    </p>
+		    <footer>
+			<button name="action_upload" string="OK" type="object" class="oe_highlight"/>
+			or
+			<button string="Cancel" class="oe_link" special="cancel" />
+		    </footer>
+		</form>
+	    </field>
+	</record>
+
+        <act_window id="ebay_item_upload"
+            multi="True"
+            key2="client_action_multi" name="Upload"
+            res_model="ebay.item.upload" src_model="ebay.item"
+            view_mode="form" target="new" view_type="form" view_id="ebay_item_upload_view" groups="ebay.group_ebay_manager"/>
 
     </data>
 </openerp>

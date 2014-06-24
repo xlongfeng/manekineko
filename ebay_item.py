@@ -815,7 +815,7 @@ Secondary value1 | Secondary value2 ...
         if len(keywords & set(vals.keys())) > 0 or vals.get('variation_modify_specific_name', ''):
             vals['need_to_be_updated'] = True
         state = vals.get('state')
-        if 'state' in ('Completed', 'Ended'):
+        if state in ('Completed', 'Ended'):
             vals['uuid'] = uuid.uuid1().hex
         return super(ebay_item, self).write(cr, uid, ids, vals, context=context)
     
