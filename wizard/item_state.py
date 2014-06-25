@@ -808,4 +808,31 @@ class ebay_item_end(osv.TransientModel):
 
 ebay_item_end()
 
+class ebay_item_upload(osv.TransientModel):
+    _name = 'ebay.item.upload'
+    _description = 'eBay item upload'
+    
+    _columns = {
+        'count': fields.integer('Item record count', readonly=True),
+    }
+    
+    def _get_count(self, cr, uid, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        return len(record_ids)
+    
+    _defaults = {
+        'count': _get_count,
+    }
+    
+    def action_upload(self, cr, uid, ids, context=None):
+        if context is None:
+            context = {}
+        record_ids = context and context.get('active_ids', False)
+        self.pool.get('ebay.item').action_upload(cr, uid, record_ids, context=context)
+        return {'type': 'ir.actions.act_window_close'}
+
+ebay_item_upload()
+
 # vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:
