@@ -41,7 +41,6 @@ import openerp.addons.decimal_precision as dp
 import ebaysdk
 from openerp.addons.ebay.ebay_utils import *
 from ebaysdk.exception import ConnectionError, ConnectionResponseError
-from ssl import SSLError
 from requests.exceptions import RequestException
 
 _logger = logging.getLogger(__name__)
@@ -208,6 +207,37 @@ class ebay_buyerrequirementdetails(osv.osv):
         'zero_feedback_score': False,
     }
     
+    def dict(self, cr, uid, ids, user, this, context=None):
+        buyer_requirement_details = dict(
+            LinkedPayPalAccount="true" if this.linked_paypal_account else "false",
+            MinimumFeedbackScore=this.minimum_feedback_score,
+            ShipToRegistrationCountry="true" if this.ship2registration_country else "false",
+        )
+        
+        buyer_requirement_details['MaximumBuyerPolicyViolations'] = dict(
+            Count=this.mbpv_count,
+            Period=this.mbpv_period,
+        )
+        
+        buyer_requirement_details['MaximumItemRequirements'] = dict(
+            MaximumItemCount=this.mir_maximum_item_count,
+        )
+        if this.mir_minimum_feedback_score:
+            buyer_requirement_details['MaximumItemRequirements']['MinimumFeedbackScore'] = this.mir_minimum_feedback_score
+        
+        buyer_requirement_details['MaximumUnpaidItemStrikesInfo'] = dict(
+            Count=this.muisi_count,
+            Period=this.muisi_period,
+        )
+        '''
+        buyer_requirement_details['VerifiedUserRequirements'] = dict(
+            MinimumFeedbackScore=this.vur_minimum_feedback_score,
+            VerifiedUser=this.vur_verified_user,
+        )
+        '''
+        
+        return buyer_requirement_details
+    
 ebay_buyerrequirementdetails()
     
 class ebay_conditiondescription(osv.osv):
@@ -308,6 +338,41 @@ class ebay_eps_picture(osv.osv):
             vals['use_by_date'] = fields.datetime.now()
         return super(ebay_eps_picture, self).write(cr, uid, ids, vals, context=context)
     
+    def upload(self, cr, uid, ids, user, picture, context=None):
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
+        ebay_eps_picturesetmember = self.pool.get('ebay.eps.picturesetmember')
+        
+        now = datetime.now()
+        if not picture.use_by_date or (ebay_strptime(picture.use_by_date) - now).days < 2:
+            image = io.BytesIO(base64.b64decode(picture.image))
+            call_data = dict()
+            call_data['PictureSet'] = 'Supersize'
+            call_data['PictureSystemVersion'] = 2
+            #call_data['PictureUploadPolicy'] = 'Add'
+            
+            call_name = 'UploadSiteHostedPictures'
+            api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+            api.execute(call_name, call_data, files=dict(image=image))
+            reply = api.response.reply
+            site_hosted_picture_details = reply.SiteHostedPictureDetails
+            vals = dict()
+            vals['base_url'] = site_hosted_picture_details.BaseURL
+            #vals['external_picture_url'] = site_hosted_picture_details.ExternalPictureURL
+            vals['full_url'] = site_hosted_picture_details.FullURL
+            vals['picture_format'] = site_hosted_picture_details.PictureFormat
+            vals['use_by_date'] = site_hosted_picture_details.UseByDate
+            picture.write(vals)
+            picture.refresh()
+            picture_set_member = site_hosted_picture_details.PictureSetMember
+            cr.execute('delete from ebay_eps_picturesetmember where ebay_eps_picture_id=%s', (picture.id,))
+            for picture_set in picture_set_member:
+                vals = dict()
+                vals['member_url'] = picture_set.MemberURL
+                vals['picture_height'] = picture_set.PictureHeight
+                vals['picture_width'] = picture_set.PictureWidth
+                vals['ebay_eps_picture_id'] = picture.id
+                ebay_eps_picturesetmember.create(cr, uid, vals, context=context)
+    
 ebay_eps_picture()
 
 class ebay_returnpolicy(osv.osv):
@@ -317,11 +382,25 @@ class ebay_returnpolicy(osv.osv):
     _columns = {
         'name': fields.char('Name', required=True),
         'description': fields.text('Description', size=5000),
-        'refund_option': fields.char('RefundOption', required=True),
+        'refund_option': fields.selection([
+            ('MoneyBack', 'Money Back'),
+            ('MoneyBackOrReplacement', 'Money back or replacement'),
+            ('MoneyBackOrExchange', 'Money back or exchange'),
+            ], 'RefundOption', required=True),
         'restocking_feevalue_option': fields.char('RestockingFeeValueOption'),
-        'returns_accepted_option': fields.char('ReturnsAcceptedOption', required=True),
-        'returns_within_option': fields.char('ReturnsWithinOption', required=True),
-        'shipping_cost_paid_by_option': fields.char('ShippingCostPaidByOption', required=True),
+        'returns_accepted_option': fields.selection([
+            ('ReturnsAccepted', 'Returns Accepted'),
+            ('ReturnsNotAccepted', 'No returns accepted'),
+            ], 'ReturnsAcceptedOption', required=True),
+        'returns_within_option':  fields.selection([
+            ('Days_14', '14 Days'),
+            ('Days_30', '30 Days'),
+            ('Days_60', '60 Days'),
+            ], 'ReturnsWithinOption', required=True),
+        'shipping_cost_paid_by_option':  fields.selection([
+            ('Buyer', 'Buyer'),
+            ('Seller', 'Seller'),
+            ], 'ShippingCostPaidByOption', required=True),
         'warranty_duration_option': fields.char('WarrantyDurationOption'),
         'warranty_offered_option': fields.char('WarrantyOfferedOption'),
         'warranty_type_option': fields.char('WarrantyTypeOption'),
@@ -330,6 +409,17 @@ class ebay_returnpolicy(osv.osv):
 
     _defaults = {
     }
+    
+    def dict(self, cr, uid, ids, user, this, context=None):
+        return_policy = dict(
+            RefundOption=this.refund_option,
+            ReturnsAcceptedOption=this.returns_accepted_option,
+            ReturnsWithinOption=this.returns_within_option,
+            ShippingCostPaidByOption=this.shipping_cost_paid_by_option,
+        )
+        if this.description:
+            return_policy['description'] = '<![CDATA[' + this.description + ']]>'
+        return return_policy
     
 ebay_returnpolicy()
 
@@ -392,6 +482,33 @@ class ebay_shippingdetails(osv.osv):
                 'value': {
                 }
             }
+        
+    def dict(self, cr, uid, ids, user, this, context=None):
+        shipping_details = dict()
+        shipping_details['InternationalShippingServiceOption'] = dict(
+            ShippingService=this.isso_shipping_service,
+            ShippingServiceAdditionalCost=this.sso_shipping_service_additional_Cost,
+            ShippingServiceCost=this.isso_shipping_service_cost,
+            ShippingServicePriority=this.isso_shipping_service_priority,
+            ShipToLocation='Worldwide'
+        )
+        
+        exclude_ship_to_location = user.exclude_ship_to_location
+        if exclude_ship_to_location:
+            shipping_details['ExcludeShipToLocation'] = user.exclude_ship_to_location.split('|')
+        
+        shipping_details['ShippingServiceOptions'] = dict(
+            ShippingService=this.sso_shipping_service,
+            ShippingServicePriority=this.sso_shipping_service_priority,
+        )
+        if this.sso_free_shipping:
+            shipping_details['ShippingServiceOptions']['FreeShipping'] = "true"
+        else:
+            shipping_details['ShippingServiceOptions']['ShippingServiceAdditionalCost'] = this.sso_shipping_service_additional_Cost
+            shipping_details['ShippingServiceOptions']['ShippingServiceCost'] = this.sso_shipping_service_cost
+
+        shipping_details['ShippingType'] = this.shipping_type
+        return shipping_details
     
 ebay_shippingdetails()
 
@@ -819,60 +936,7 @@ Secondary value1 | Secondary value2 ...
             vals['uuid'] = uuid.uuid1().hex
         return super(ebay_item, self).write(cr, uid, ids, vals, context=context)
     
-    def upload_pictures(self, cr, uid, user, eps_pictures, context=None):
-        if not eps_pictures:
-            return list()
-        
-        ebay_ebay_obj = self.pool.get('ebay.ebay')
-        ebay_eps_picturesetmember = self.pool.get('ebay.eps.picturesetmember')
-        
-        now = datetime.now()
-        for picture in eps_pictures:
-            if not picture.use_by_date or (ebay_strptime(picture.use_by_date) - now).days < 2:
-                image = io.BytesIO(base64.b64decode(picture.image))
-                call_data = dict()
-                call_data['PictureSet'] = 'Supersize'
-                call_data['PictureSystemVersion'] = 2
-                #call_data['PictureUploadPolicy'] = 'Add'
-                
-                call_name = 'UploadSiteHostedPictures'
-                api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
-                try:
-                    api.execute(call_name, call_data, files=dict(image=image))
-                except ConnectionError as e:
-                    # This item has errors, goto next item
-                    return False
-                except ConnectionResponseError as e:
-                    # Network communication abnormal, abort whole items upload
-                    return False
-                except RequestException as e:
-                    # Network communication abnormal, abort whole items upload
-                    return False
-                else:
-                    reply = api.response.reply
-                    site_hosted_picture_details = reply.SiteHostedPictureDetails
-                    vals = dict()
-                    vals['base_url'] = site_hosted_picture_details.BaseURL
-                    #vals['external_picture_url'] = site_hosted_picture_details.ExternalPictureURL
-                    vals['full_url'] = site_hosted_picture_details.FullURL
-                    vals['picture_format'] = site_hosted_picture_details.PictureFormat
-                    vals['use_by_date'] = site_hosted_picture_details.UseByDate
-                    picture.write(vals)
-                    picture.refresh()
-                    picture_set_member = site_hosted_picture_details.PictureSetMember
-                    cr.execute('delete from ebay_eps_picturesetmember \
-                            where ebay_eps_picture_id=%s', (picture.id,))
-                    for picture_set in picture_set_member:
-                        vals = dict()
-                        vals['member_url'] = picture_set.MemberURL
-                        vals['picture_height'] = picture_set.PictureHeight
-                        vals['picture_width'] = picture_set.PictureWidth
-                        vals['ebay_eps_picture_id'] = picture.id
-                        ebay_eps_picturesetmember.create(cr, uid, vals, context=context)
-                    
-        return eps_pictures
-    
-    def variation_dict(self, cr, uid, item, item_dict, context=None): 
+    def item_variation_dict(self, cr, uid, ids, item, item_dict, context=None): 
         if not item.child_ids:
             return True
                 
@@ -899,20 +963,21 @@ Secondary value1 | Secondary value2 ...
                         NameValueList=name_value_list if len(name_value_list) > 1 else name_value_list[0],
                     )
                 )
-            eps_pictures = self.upload_pictures(cr, uid, user, variant.eps_picture_ids, context=context)
-            if eps_pictures == False:
-                return False
-            specific_value = name_value_list[0]['Value']
-            for _pic in eps_pictures:
-                if not pictures.has_key(specific_value):
-                    pictures[specific_value] = list()
-                pictures[specific_value].append(_pic.full_url)
+            
+            if variant.eps_picture_ids:
+                specific_value = name_value_list[0]['Value']
+                for _pic in variant.eps_picture_ids:
+                    if not pictures.has_key(specific_value):
+                        pictures[specific_value] = list()
+                    pictures[specific_value].append(_pic.full_url)
+            
             if variant.variation_deleted:
                 if variant.quantity_sold > 0:
                     v['Quantity'] = 0
                 else:
                     v['Delete'] = 'true'
             variants.append(v)
+            
         item_dict['Item']['Variations']['Variation'] = variants if len(variants) > 1 else variants[0]
         
         if pictures:
@@ -947,41 +1012,10 @@ Secondary value1 | Secondary value2 ...
         
         return True
     
-    def item_shipping_details_dict(self, cr, uid, item, context=None):
-        if item.shipping_details_id:
-            user = item.ebay_user_id
-            sd = item.shipping_details_id
-            shipping_details = dict()
-            shipping_details['InternationalShippingServiceOption'] = dict(
-                ShippingService=sd.isso_shipping_service,
-                ShippingServiceAdditionalCost=sd.sso_shipping_service_additional_Cost,
-                ShippingServiceCost=sd.isso_shipping_service_cost,
-                ShippingServicePriority=sd.isso_shipping_service_priority,
-                ShipToLocation='Worldwide'
-            )
-            
-            exclude_ship_to_location = user.exclude_ship_to_location
-            if exclude_ship_to_location:
-                shipping_details['ExcludeShipToLocation'] = user.exclude_ship_to_location.split('|')
-            
-            shipping_details['ShippingServiceOptions'] = dict(
-                ShippingService=sd.sso_shipping_service,
-                ShippingServicePriority=sd.sso_shipping_service_priority,
-            )
-            if sd.sso_free_shipping:
-                shipping_details['ShippingServiceOptions']['FreeShipping'] = "true"
-            else:
-                shipping_details['ShippingServiceOptions']['ShippingServiceAdditionalCost'] = sd.sso_shipping_service_additional_Cost
-                shipping_details['ShippingServiceOptions']['ShippingServiceCost'] = sd.sso_shipping_service_cost
-
-            shipping_details['ShippingType'] = sd.shipping_type
-            return shipping_details
-        else:
-            return False
-    
     def item_create(self, cr, uid, item, context=None):
         user = item.ebay_user_id
         auction = item.listing_type == 'Chinese'
+        
         if item.description_tmpl_id and item.description_tmpl_id.template:
             template = Template(item.description_tmpl_id.template)
             description = template.render(
@@ -992,6 +1026,7 @@ Secondary value1 | Secondary value2 ...
             ).replace('\r', '').replace('\n', '').replace('\t', '')
         else:
             description = item.description
+            
         item_dict = {
             'Item': {
                 'CategoryMappingAllowed': 'true',
@@ -1015,27 +1050,25 @@ Secondary value1 | Secondary value2 ...
             }
         }
         
-        eps_pictures = self.upload_pictures(cr, uid, user, item.eps_picture_ids, context=context)
-        if eps_pictures == False:
-            return False, False
-        picture_url = list()
-        for picture in eps_pictures:
-            picture_url.append(picture.full_url)
-        else:
-            if len(picture_url) == 1:
-                item_dict['Item']['PictureDetails'] = dict(
-                    GalleryType='Gallery',
-                    PhotoDisplay='SuperSize',
-                    PictureSource='EPS',
-                    PictureURL=picture_url[0],
-                )
-            elif len(picture_url) > 1:
-                item_dict['Item']['PictureDetails'] = dict(
-                    GalleryType='Gallery',
-                    PhotoDisplay='SuperSize',
-                    PictureSource='EPS',
-                    PictureURL=picture_url,
-                )
+        if item.eps_picture_ids:
+            picture_url = list()
+            for picture in item.eps_picture_ids:
+                picture_url.append(picture.full_url)
+            else:
+                if len(picture_url) == 1:
+                    item_dict['Item']['PictureDetails'] = dict(
+                        GalleryType='Gallery',
+                        PhotoDisplay='SuperSize',
+                        PictureSource='EPS',
+                        PictureURL=picture_url[0],
+                    )
+                elif len(picture_url) > 1:
+                    item_dict['Item']['PictureDetails'] = dict(
+                        GalleryType='Gallery',
+                        PhotoDisplay='SuperSize',
+                        PictureSource='EPS',
+                        PictureURL=picture_url,
+                    )
         
         if auction:
             if item.buy_it_now_price:
@@ -1048,63 +1081,21 @@ Secondary value1 | Secondary value2 ...
             if not item.variation_invalid and item.variation:
                 del item_dict['Item']['Quantity']
                 del item_dict['Item']['StartPrice']
-                if self.variation_dict(cr, uid, item, item_dict, context=context) == False:
-                    return False, False
+                item.item_variation_dict(item, item_dict)
+        
         if item.buyer_requirement_details_id:
-            brd = item.buyer_requirement_details_id
-            buyer_requirement_details = dict(
-                LinkedPayPalAccount="true" if brd.linked_paypal_account else "false",
-                MinimumFeedbackScore=brd.minimum_feedback_score,
-                ShipToRegistrationCountry="true" if brd.ship2registration_country else "false",
-            )
-            
-            buyer_requirement_details['MaximumBuyerPolicyViolations'] = dict(
-                Count=brd.mbpv_count,
-                Period=brd.mbpv_period,
-            )
-            
-            buyer_requirement_details['MaximumItemRequirements'] = dict(
-                MaximumItemCount=brd.mir_maximum_item_count,
-            )
-            if brd.mir_minimum_feedback_score:
-                buyer_requirement_details['MaximumItemRequirements']['MinimumFeedbackScore'] = brd.mir_minimum_feedback_score
-            
-            buyer_requirement_details['MaximumUnpaidItemStrikesInfo'] = dict(
-                Count=brd.muisi_count,
-                Period=brd.muisi_period,
-            )
-            '''
-            buyer_requirement_details['VerifiedUserRequirements'] = dict(
-                MinimumFeedbackScore=brd.vur_minimum_feedback_score,
-                VerifiedUser=brd.vur_verified_user,
-            )
-            '''
-            
-            item_dict['Item']['BuyerRequirementDetails'] = buyer_requirement_details
+            item_dict['Item']['BuyerRequirementDetails'] = item.buyer_requirement_details_id.dict(user, item.buyer_requirement_details_id)
             
         if item.return_policy_id:
-            rp = item.return_policy_id
-            return_policy = dict(
-                RefundOption=rp.refund_option,
-                ReturnsAcceptedOption=rp.returns_accepted_option,
-                ReturnsWithinOption=rp.returns_within_option,
-                ShippingCostPaidByOption=rp.shipping_cost_paid_by_option,
-            )
-            if rp.description:
-                return_policy['description'] = '<![CDATA[' + rp.description + ']]>'
-            item_dict['Item']['ReturnPolicy'] = return_policy
+            item_dict['Item']['ReturnPolicy'] = item.return_policy_id.dict(user, item.return_policy_id)
         
-        shipping_details = self.item_shipping_details_dict(cr, uid, item, context=context)
-        if shipping_details:
-            item_dict['Item']['ShippingDetails'] = shipping_details
+        if item.shipping_details_id:
+            item_dict['Item']['ShippingDetails'] = item.shipping_details_id.dict(user, item.shipping_details_id)
         
         return item_dict, auction
     
     def item_revise(self, cr, uid, item, context=None):
         item_dict, auction = self.item_create(cr, uid, item, context=context)
-        if item_dict == False:
-            # TODO: Can not upload pictures
-            return False, False
         item_dict['Item']['DescriptionReviseMode'] = 'Replace'
         item_dict['Item']['ItemID'] = item.item_id
         if item.bid_count > 0 or item.quantity_sold > 0:
@@ -1128,122 +1119,133 @@ Secondary value1 | Secondary value2 ...
             for varation in varations:
                 eps_picture_extend_use_by_date(varation)
                 varation.write({'need_to_be_updated': False, 'state': item.state})
-    
-    def action_verify(self, cr, uid, ids, context=None):
-        for item in self.browse(cr, uid, ids, context=context):
-            user = item.ebay_user_id
-            item_dict, auction = self.item_create(cr, uid, item, context=context)
-            if item_dict == False:
-                raise orm.except_orm(_('Warning!'), _('Can not upload pictures'))
-            ebay_ebay_obj = self.pool.get('ebay.ebay')
-            if item.item_id:
-                item_dict['Item']['ItemID'] = item.item_id
-                call_name = "VerifyRelistItem" if auction else "VerifyRelistFixedPriceItem"
-            else:
-                call_name = "VerifyAddItem" if auction else "VerifyAddFixedPriceItem"
-            error_msg = '%s: %s' % (call_name, item.name)
-            
-            api = ebay_ebay_obj.call(cr, uid, user, call_name, item_dict, error_msg, context=context)
-            item.write(dict(response=api.response.json()))
             
         return True
-    
-    def api_execute_exception(self, cr, uid, item, error, response=None, context=None):
-        vals = dict(
-            severity_code_error=True,
-            severity_code_warning=False,
-            error_message = error,
-            response = response,
-        )
-        item.write(vals)
         
-    def trading_api(self, cr, uid, user, item, call_name, call_data, context=None):
+    def picture_upload(self, cr, uid, item, context=None):
+        try:
+            user = item.ebay_user_id
+            if item.eps_picture_ids:
+                for picture in item.eps_picture_ids:
+                    picture.upload(user, picture)
+                    
+            if not item.variation_invalid and item.variation and item.child_ids:
+                for child in item.child_ids:
+                    if child.eps_picture_ids:
+                        for picture in child.eps_picture_ids:
+                            picture.upload(user, picture)
+        except ConnectionError as e:
+            vals = dict()
+            vals['severity_code_error'] = True
+            vals['severity_code_warning'] = False
+            vals['error_message'] = e
+            item.write(vals)
+            return False
+        else:
+            return True
+        
+    def item_upload(self, cr, uid, ids, item, context=None):
+        if item.state not in ('Draft', 'Completed', 'Ended'):
+            return
+        
         ebay_ebay_obj = self.pool.get('ebay.ebay')
+        user = item.ebay_user_id
+        
+        if self.picture_upload(cr, uid, item, context=context) == False:
+            return
+        
+        call_data, auction = self.item_create(cr, uid, item, context=context)
+        
+        if item.item_id:
+            call_data['Item']['ItemID'] = item.item_id
+            call_name = "RelistItem" if auction else "RelistFixedPriceItem"
+        else:
+            call_name = "AddItem" if auction else "AddFixedPriceItem"
+        
         api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
         try:
             api.execute(call_name, call_data)
         except ConnectionError as e:
             reply = api.response.reply
-            error = ebay_errors(reply.Errors)
-            self.api_execute_exception(cr, uid, item, error, response=api.response.json(), context=context)
-            # This item has errors, goto next item
-            return True
-        except ConnectionResponseError as e:
-            self.api_execute_exception(cr, uid, item, e, context=context)
-            # Network communication abnormal, abort whole items upload
-            return False
-        except RequestException as e:
-            self.api_execute_exception(cr, uid, item, e, context=context)
-            # Network communication abnormal, abort whole items upload
-            return False
+            vals = dict()
+            vals['severity_code_error'] = True
+            vals['severity_code_warning'] = False
+            vals['error_message'] = ebay_errors(reply.Errors)
+            item.write(vals)
         else:
-            return api
+            reply = api.response.reply
+            vals = dict()
+            vals['end_time'] = reply.EndTime
+            vals['item_id'] = reply.ItemID
+            vals['start_time'] = reply.StartTime
+            vals['need_to_be_updated'] = False
+            vals['bid_count'] = 0
+            vals['quantity_sold'] = 0
+            vals['revise_date'] = fields.datetime.now()
+            vals['state'] = 'Active'
+            vals['response'] = api.response.json()
+            if reply.Ack == 'Warning' and reply.has_key('Errors'):
+                vals['severity_code_error'] = False
+                vals['severity_code_warning'] = True
+                vals['error_message'] = ebay_errors(reply.Errors)
+            else:
+                vals['severity_code_error'] = False
+                vals['severity_code_warning'] = False
+                vals['error_message'] = ''
+            item.write(vals)
+            self.item_post_update(cr, uid, item, context=context)
+            varations = item.child_ids
+            if varations:
+                for varation in varations:
+                    varation.write({'quantity_sold': 0, 'state': item.state})
+                    
+    def action_verify(self, cr, uid, ids, context=None):
+        try:
+            for item in self.browse(cr, uid, ids, context=context):
+                ebay_ebay_obj = self.pool.get('ebay.ebay')
+                user = item.ebay_user_id
+                
+                if self.picture_upload(cr, uid, item, context=context) == False:
+                    continue
+                
+                call_data, auction = self.item_create(cr, uid, item, context=context)
+                
+                if item.item_id:
+                    call_data['Item']['ItemID'] = item.item_id
+                    call_name = "VerifyRelistItem" if auction else "VerifyRelistFixedPriceItem"
+                else:
+                    call_name = "VerifyAddItem" if auction else "VerifyAddFixedPriceItem"
+                
+                api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+                try:
+                    api.execute(call_name, call_data)
+                except ConnectionError as e:
+                    reply = api.response.reply
+                    vals = dict()
+                    vals['severity_code_error'] = True
+                    vals['severity_code_warning'] = False
+                    vals['error_message'] = ebay_errors(reply.Errors)
+                    item.write(vals)
+        except (ConnectionError, ConnectionResponseError, RequestException) as e:
+            return self.pool.get('ebay.ebay').exception(cr, uid, 'Verify Item', e, context=context)
+        
+        return True
+            
+    def action_upload_picture(self, cr, uid, ids, context=None):
+        try:
+            for item in self.browse(cr, uid, ids, context=context):
+                self.picture_upload(cr, uid, item, context=context)
+        except (ConnectionError, ConnectionResponseError, RequestException) as e:
+            return self.pool.get('ebay.ebay').exception(cr, uid, 'UploadSiteHostedPictures', e, context=context)
+        
+        return True
         
     def action_upload(self, cr, uid, ids, context=None):
-        ebay_ebay_obj = self.pool.get('ebay.ebay')
-        for item in self.browse(cr, uid, ids, context=context):
-            if item.state not in ('Draft', 'Completed', 'Ended'):
-                continue
-            user = item.ebay_user_id
-            item_dict, auction = self.item_create(cr, uid, item, context=context)
-            if item_dict == False:
-                vals = dict()
-                vals['severity_code_error'] = True
-                vals['severity_code_warning'] = False
-                vals['error_message'] = 'Can not upload pictures'
-                item.write(vals)
-                return False
-            if item.item_id:
-                item_dict['Item']['ItemID'] = item.item_id
-                call_name = "RelistItem" if auction else "RelistFixedPriceItem"
-            else:
-                call_name = "AddItem" if auction else "AddFixedPriceItem"
-            
-            api = self.trading_api(cr, uid, user, item, call_name, item_dict, context=context)
-            if api == True:
-                continue
-            elif api == False:
-                return False
-            else:
-                reply = api.response.reply
-                vals = dict()
-                vals['end_time'] = reply.EndTime
-                vals['item_id'] = reply.ItemID
-                vals['start_time'] = reply.StartTime
-                vals['need_to_be_updated'] = False
-                vals['bid_count'] = 0
-                vals['quantity_sold'] = 0
-                vals['revise_date'] = fields.datetime.now()
-                vals['state'] = 'Active'
-                vals['response'] = api.response.json()
-                if reply.Ack == 'Warning' and reply.has_key('Errors'):
-                    vals['severity_code_error'] = False
-                    vals['severity_code_warning'] = True
-                    vals['error_message'] = ebay_errors(reply.Errors)
-                else:
-                    vals['severity_code_error'] = False
-                    vals['severity_code_warning'] = False
-                    vals['error_message'] = ''
-                item.write(vals)
-                self.item_post_update(cr, uid, item, context=context)
-                varations = item.child_ids
-                if varations:
-                    for varation in varations:
-                        varation.write({'quantity_sold': 0, 'state': item.state})
-            
-        return True
-    
-    def action_upload_picture(self, cr, uid, ids, context=None):
-        for item in self.browse(cr, uid, ids, context=context):
-            user = item.ebay_user_id
-            item_dict, auction = self.item_create(cr, uid, item, context=context)
-            if item_dict == False:
-                vals = dict()
-                vals['severity_code_error'] = True
-                vals['severity_code_warning'] = False
-                vals['error_message'] = 'Can not upload pictures'
-                item.write(vals)
-                return False
+        try:
+            for item in self.browse(cr, uid, ids, context=context):
+                item.item_upload(item)
+        except (ConnectionError, ConnectionResponseError, RequestException) as e:
+            return self.pool.get('ebay.ebay').exception(cr, uid, 'UploadSiteHostedPictures', e, context=context)
             
         return True
     
@@ -1270,7 +1272,263 @@ Secondary value1 | Secondary value2 ...
                     return True
         
         return False
+        
+    def action_revise(self, cr, uid, ids, context=None):
+        def _is_updated(item):
+            revise_date = item.revise_date
+            if item.need_to_be_updated or not revise_date:
+                return True
+            
+            check_fields = (
+                'buyer_requirement_details_id',
+                'condition_description_id',
+                'primary_category_id',
+                'return_policy_id',
+                'secondary_category_id',
+                'shipping_details_id',
+                'description_tmpl_id',
+            )
+            
+            for field_name in check_fields:
+                field = item[field_name]
+                if field:
+                    perm = field.perm_read()[0]
+                    if perm.get('write_date') > revise_date:
+                        return True
+            
+            return False
+        
+        ebay_ebay_obj = self.pool.get('ebay.ebay')
+        try:
+            for item in self.browse(cr, uid, ids, context=context):
+                if item.state not in ('Active',) or not _is_updated(item):
+                    continue
+                
+                user = item.ebay_user_id
+                
+                if self.picture_upload(cr, uid, item, context=context) == False:
+                    continue
+                
+                if item.variation:
+                    # delete variation firstly
+                    has_variation_deleted = False
+                    for variation in item.child_ids:
+                        if variation.variation_deleted:
+                            has_variation_deleted = True
+                            break
+                    if has_variation_deleted:
+                        call_data, auction = self.item_revise(cr, uid, item, context=context)
+                        call_name = "ReviseFixedPriceItem"
+                        api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+                        try:
+                            api.execute(call_name, call_data)
+                        except ConnectionError as e:
+                            reply = api.response.reply
+                            vals = dict()
+                            vals['severity_code_error'] = True
+                            vals['severity_code_warning'] = False
+                            vals['error_message'] = ebay_errors(reply.Errors)
+                            item.write(vals)
+                            # Break off this item revise
+                            continue
+                        else:
+                            for variation in item.child_ids:
+                                if variation.variation_deleted:
+                                    variation.unlink(check=False)
+                                
+                    # modify specific name secondly
+                    if item.variation_modify_specific_name:
+                        call_data, auction = self.item_revise(cr, uid, item, context=context)
+                        del call_data['Item']['Variations']
+                        variation_specific_name = item.variation_specific_name
+                        modify_name_nodes = list()
+                        for modify_name in item.variation_modify_specific_name.replace(' ', '').splitlines():
+                            modify_name = modify_name.split('|')
+                            modify_name_nodes.append(dict(
+                                ModifyName=dict(
+                                    Name=modify_name[0],
+                                    NewName=modify_name[1],
+                                )
+                            ))
+                            variation_specific_name = variation_specific_name.replace(modify_name[0], modify_name[1])
+                        call_data['Item']['Variations'] = dict(
+                            ModifyNameList=modify_name_nodes if len(modify_name_nodes) > 1 else modify_name_nodes[0]
+                        )
+                        call_name = "ReviseFixedPriceItem"
+                        api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+                        try:
+                            api.execute(call_name, call_data)
+                        except ConnectionError as e:
+                            reply = api.response.reply
+                            vals = dict()
+                            vals['severity_code_error'] = True
+                            vals['severity_code_warning'] = False
+                            vals['error_message'] = ebay_errors(reply.Errors)
+                            item.write(vals)
+                            # Break off this item revise
+                            continue
+                        else:
+                            item.write(dict(
+                                variation_modify_specific_name='',
+                                variation_specific_name=variation_specific_name,
+                            ))
+                            item.refresh()
+                
+                call_data, auction = self.item_revise(cr, uid, item, context=context)
+                if call_data == False:
+                    vals = dict()
+                    vals['severity_code_error'] = True
+                    vals['severity_code_warning'] = False
+                    vals['error_message'] = 'Can not upload pictures'
+                    item.write(vals)
+                    return False
+                call_name = "ReviseItem" if auction else "ReviseFixedPriceItem"
+                api = ebay_ebay_obj.trading(cr, uid, user, call_name, context=context)
+                try:
+                    api.execute(call_name, call_data)
+                except ConnectionError as e:
+                    reply = api.response.reply
+                    vals = dict()
+                    vals['severity_code_error'] = True
+                    vals['severity_code_warning'] = False
+                    vals['error_message'] = ebay_errors(reply.Errors)
+                    item.write(vals)
+                    # Break off this item revise
+                else:
+                    reply = api.response.reply
+                    vals = dict()
+                    vals['end_time'] = api.response.reply.EndTime
+                    vals['need_to_be_updated'] = False
+                    vals['revise_date'] = fields.datetime.now()
+                    vals['response'] = api.response.json()
+                    if reply.Ack == 'Warning' and reply.has_key('Errors'):
+                        vals['severity_code_error'] = False
+                        vals['severity_code_warning'] = True
+                        vals['error_message'] = ebay_errors(reply.Errors)
+                    else:
+                        vals['severity_code_error'] = False
+                        vals['severity_code_warning'] = False
+                        vals['error_message'] = ''
+                    item.write(vals)
+                    self.item_post_update(cr, uid, item, context=context)
+        except (ConnectionError, ConnectionResponseError, RequestException) as e:
+            return self.pool.get('ebay.ebay').exception(cr, uid, 'Revise Item', e, context=context)
+        
+        return True
+        
+    def action_synchronize(self, cr, uid, ids, context=None):
+        for item in self.browse(cr, uid, ids, context=context):
+            if item.state not in ('Active', 'Completed', 'Ended'):
+                continue
+            
+            user = item.ebay_user_id
+            
+            call_data = dict()
+            call_data['IncludeWatchCount'] = 'true'
+            call_data['ItemID'] = item.item_id
+            call_data['DetailLevel'] = 'ReturnAll'
+            call_data['OutputSelector'] =  [
+                'Item.HitCount',
+                'Item.ListingDetails',
+                'Item.SellingStatus',
+                'Item.TimeLeft',
+                'Item.Variations.Variation',
+                'Item.WatchCount',
+            ]
+            error_msg = 'Get item: %s' % item.name
+            api = self.pool.get('ebay.ebay').call(cr, uid, user, 'GetItem', call_data, error_msg, context=context)
+            reply = api.response.reply
+            vals = dict()
+            vals['hit_count'] = reply.Item.HitCount
+            listing_details = reply.Item.ListingDetails
+            vals['end_time'] = listing_details.EndTime
+            vals['start_time'] = listing_details.StartTime
+            selling_status = reply.Item.SellingStatus
+            vals['bid_count'] = selling_status.BidCount
+            vals['quantity_sold'] = selling_status.QuantitySold
+            vals['state'] = selling_status.ListingStatus
+            vals['time_left'] = reply.Item.TimeLeft
+            vals['update_date'] = fields.datetime.now()
+            vals['watch_count'] = reply.Item.WatchCount
+            if reply.Item.has_key('Variations'):
+                for variation in reply.Item.Variations.Variation:
+                    _id = variation.SKU if variation.has_key('SKU') and variation.SKU.isdigit() else ''
+                    if _id:
+                        record = self.browse(cr, uid, int(_id), context=context)
+                        if record.exists():
+                            record.write(dict(quantity_sold=variation.SellingStatus.QuantitySold))
+            item.write(vals)
+            self.item_post_update(cr, uid, item, context=context)
+            
+            def eps_picture_fetch(item):
+                eps_pictures = item.eps_picture_ids
+                if eps_pictures:
+                    for picture in eps_pictures:
+                        vals = dict()
+                        if picture.dummy:
+                            try:
+                                vals['image'] = base64.encodestring(urllib2.urlopen(picture.full_url).read())
+                            except:
+                                pass
+                            else:
+                                vals['dummy'] = False
+                                picture.write(vals)
+            eps_picture_fetch(item)
+            varations = item.child_ids
+            if varations:
+                for varation in varations:
+                    eps_picture_fetch(varation)
+        return True
+        
+    def action_end_listing(self, cr, uid, ids, context=None):
+        try:
+            for item in self.browse(cr, uid, ids, context=context):
+                if item.state not in ('Active',):
+                    continue
+                try:
+                    user = item.ebay_user_id
+                    auction = item.listing_type == 'Chinese'
+                    call_name = "EndItem" if auction else "EndFixedPriceItem"
+                    call_data = dict()
+                    call_data['EndingReason'] = 'NotAvailable'
+                    call_data['ItemID'] = item.item_id
+                    api = self.pool.get('ebay.ebay').trading(cr, uid, user, call_name, context=context)
+                    api.execute(call_name, call_data)
+                except ConnectionError as e:
+                    reply = api.response.reply
+                    vals = dict()
+                    vals['severity_code_error'] = True
+                    vals['severity_code_warning'] = False
+                    vals['error_message'] = ebay_errors(reply.Errors)
+                    item.write(vals)
+                else:
+                    reply = api.response.reply
+                    vals = dict()
+                    vals['variation_modify_specific_name'] = ''
+                    vals['end_time'] = api.response.reply.EndTime
+                    vals['state'] = 'Completed'
+                    vals['severity_code_error'] = False
+                    vals['severity_code_warning'] = False
+                    vals['error_message'] = ''
+                    item.write(vals)
+                    varations = item.child_ids
+                    if varations:
+                        for varation in varations:
+                            varation.write(dict(state='Completed'))
+        except (ConnectionError, ConnectionResponseError, RequestException) as e:
+            return self.pool.get('ebay.ebay').exception(cr, uid, 'UploadSiteHostedPictures', e, context=context)
+            
+        return True
+        
+    def action_renew_uuid(self, cr, uid, ids, context=None):
+        for item in self.browse(cr, uid, ids, context=context):
+            if item.state not in ('Completed','Ended'):
+                continue
+            item.write(dict(uuid=uuid.uuid1().hex))
+        
+        return True
     
+        
     def variation_quantity_dict(self, cr, uid, item, child_ids=None, context=None): 
         user = item.ebay_user_id
         variations_dict = dict()
@@ -1324,9 +1582,8 @@ Secondary value1 | Secondary value2 ...
             },
             #'InvocationID': item.uuid,
         }
-        shipping_details = self.item_shipping_details_dict(cr, uid, item, context=context)
-        if shipping_details:
-            call_data['Item']['ShippingDetails'] = shipping_details
+        if item.shipping_details_id:
+            call_data['Item']['ShippingDetails'] = item.shipping_details_id.dict(user, item.shipping_details_id)
         if child_ids:
             call_data['Item']['Variations'] = self.variation_quantity_dict(cr, uid, item, child_ids, context=context)
         else:
@@ -1376,219 +1633,6 @@ Secondary value1 | Secondary value2 ...
             else:
                 if _eligible_item(item):
                     self.revise_item_quantity(cr, uid, item, context=context)
-        
-    def action_revise(self, cr, uid, ids, context=None):
-        ebay_ebay_obj = self.pool.get('ebay.ebay')
-        for item in self.browse(cr, uid, ids, context=context):
-            if item.state not in ('Active',) or not self.is_updated(cr, uid, item, context=context):
-                continue
-            
-            user = item.ebay_user_id
-            
-            if item.variation:
-                # delete variation firstly
-                has_variation_deleted = False
-                for variation in item.child_ids:
-                    if variation.variation_deleted:
-                        has_variation_deleted = True
-                        break
-                if has_variation_deleted:
-                    item_dict, auction = self.item_revise(cr, uid, item, context=context)
-                    if item_dict == False:
-                        vals = dict()
-                        vals['severity_code_error'] = True
-                        vals['severity_code_warning'] = False
-                        vals['error_message'] = 'Can not upload pictures'
-                        item.write(vals)
-                        return False
-                    call_name = "ReviseFixedPriceItem"
-                    api = self.trading_api(cr, uid, user, item, call_name, item_dict, context=context)
-                    if api == True:
-                        continue
-                    elif api == False:
-                        return False
-                    else:
-                        for variation in item.child_ids:
-                            if variation.variation_deleted:
-                                variation.unlink(check=False)
-                            
-                # modify specific name secondly
-                if item.variation_modify_specific_name:
-                    item_dict, auction = self.item_revise(cr, uid, item, context=context)
-                    if item_dict == False:
-                        vals = dict()
-                        vals['severity_code_error'] = True
-                        vals['severity_code_warning'] = False
-                        vals['error_message'] = 'Can not upload pictures'
-                        item.write(vals)
-                        return False
-                    del item_dict['Item']['Variations']
-                    variation_specific_name = item.variation_specific_name
-                    modify_name_nodes = list()
-                    for modify_name in item.variation_modify_specific_name.replace(' ', '').splitlines():
-                        modify_name = modify_name.split('|')
-                        modify_name_nodes.append(dict(
-                            ModifyName=dict(
-                                Name=modify_name[0],
-                                NewName=modify_name[1],
-                            )
-                        ))
-                        variation_specific_name = variation_specific_name.replace(modify_name[0], modify_name[1])
-                    item_dict['Item']['Variations'] = dict(
-                        ModifyNameList=modify_name_nodes if len(modify_name_nodes) > 1 else modify_name_nodes[0]
-                    )
-                    call_name = "ReviseFixedPriceItem"
-                    api = self.trading_api(cr, uid, user, item, call_name, item_dict, context=context)
-                    if api == True:
-                        continue
-                    elif api == False:
-                        return False
-                    else:
-                        item.write(dict(
-                            variation_modify_specific_name='',
-                            variation_specific_name=variation_specific_name,
-                        ))
-                        item.refresh()
-            
-            item_dict, auction = self.item_revise(cr, uid, item, context=context)
-            if item_dict == False:
-                vals = dict()
-                vals['severity_code_error'] = True
-                vals['severity_code_warning'] = False
-                vals['error_message'] = 'Can not upload pictures'
-                item.write(vals)
-                return False
-            call_name = "ReviseItem" if auction else "ReviseFixedPriceItem"
-            api = self.trading_api(cr, uid, user, item, call_name, item_dict, context=context)
-            if api == True:
-                continue
-            elif api == False:
-                return False
-            else:
-                reply = api.response.reply
-                vals = dict()
-                vals['end_time'] = api.response.reply.EndTime
-                vals['need_to_be_updated'] = False
-                vals['revise_date'] = fields.datetime.now()
-                vals['response'] = api.response.json()
-                if reply.Ack == 'Warning' and reply.has_key('Errors'):
-                    vals['severity_code_error'] = False
-                    vals['severity_code_warning'] = True
-                    vals['error_message'] = ebay_errors(reply.Errors)
-                else:
-                    vals['severity_code_error'] = False
-                    vals['severity_code_warning'] = False
-                    vals['error_message'] = ''
-                item.write(vals)
-                self.item_post_update(cr, uid, item, context=context)
-            
-        return True
-        
-    def action_synchronize(self, cr, uid, ids, context=None):
-        for item in self.browse(cr, uid, ids, context=context):
-            if item.state not in ('Active', 'Completed', 'Ended'):
-                continue
-            
-            user = item.ebay_user_id
-            
-            call_data = dict()
-            call_data['IncludeWatchCount'] = 'true'
-            call_data['ItemID'] = item.item_id
-            call_data['DetailLevel'] = 'ReturnAll'
-            call_data['OutputSelector'] =  [
-                'Item.HitCount',
-                'Item.ListingDetails',
-                'Item.SellingStatus',
-                'Item.TimeLeft',
-                'Item.Variations.Variation',
-                'Item.WatchCount',
-            ]
-            error_msg = 'Get item: %s' % item.name
-            ebay_ebay_obj = self.pool.get('ebay.ebay')
-            api = ebay_ebay_obj.call(cr, uid, user, 'GetItem', call_data, error_msg, context=context)
-            reply = api.response.reply
-            vals = dict()
-            vals['hit_count'] = reply.Item.HitCount
-            listing_details = reply.Item.ListingDetails
-            vals['end_time'] = listing_details.EndTime
-            vals['start_time'] = listing_details.StartTime
-            selling_status = reply.Item.SellingStatus
-            vals['bid_count'] = selling_status.BidCount
-            vals['quantity_sold'] = selling_status.QuantitySold
-            vals['state'] = selling_status.ListingStatus
-            vals['time_left'] = reply.Item.TimeLeft
-            vals['update_date'] = fields.datetime.now()
-            vals['watch_count'] = reply.Item.WatchCount
-            if reply.Item.has_key('Variations'):
-                for variation in reply.Item.Variations.Variation:
-                    _id = variation.SKU if variation.has_key('SKU') and variation.SKU.isdigit() else ''
-                    if _id:
-                        record = self.browse(cr, uid, int(_id), context=context)
-                        if record.exists():
-                            record.write(dict(quantity_sold=variation.SellingStatus.QuantitySold))
-            item.write(vals)
-            self.item_post_update(cr, uid, item, context=context)
-            
-            def eps_picture_fetch(item):
-                eps_pictures = item.eps_picture_ids
-                if eps_pictures:
-                    for picture in eps_pictures:
-                        vals = dict()
-                        if picture.dummy:
-                            try:
-                                vals['image'] = base64.encodestring(urllib2.urlopen(picture.full_url).read())
-                            except:
-                                pass
-                            else:
-                                vals['dummy'] = False
-                                picture.write(vals)
-            eps_picture_fetch(item)
-            varations = item.child_ids
-            if varations:
-                for varation in varations:
-                    eps_picture_fetch(varation)
-        return True
-    
-    def action_renew_uuid(self, cr, uid, ids, context=None):
-        for item in self.browse(cr, uid, ids, context=context):
-            if item.state not in ('Completed','Ended'):
-                continue
-            item.write(dict(uuid=uuid.uuid1().hex))
-        
-        return True
-        
-    def action_end_listing(self, cr, uid, ids, context=None):
-        for item in self.browse(cr, uid, ids, context=context):
-            if item.state not in ('Active',):
-                continue
-            user = item.ebay_user_id
-            
-            auction = item.listing_type == 'Chinese'
-            call_name = "EndItem" if auction else "EndFixedPriceItem"
-            call_data = dict()
-            call_data['EndingReason'] = 'NotAvailable'
-            call_data['ItemID'] = item.item_id
-            api = self.trading_api(cr, uid, user, item, call_name, call_data, context=context)
-            if api == True:
-                continue
-            elif api == False:
-                return False
-            else:
-                reply = api.response.reply
-                vals = dict()
-                vals['variation_modify_specific_name'] = ''
-                vals['end_time'] = api.response.reply.EndTime
-                vals['state'] = 'Completed'
-                vals['severity_code_error'] = False
-                vals['severity_code_warning'] = False
-                vals['error_message'] = ''
-                item.write(vals)
-                varations = item.child_ids
-                if varations:
-                    for varation in varations:
-                        varation.write(dict(state='Completed'))
-            
-        return True
     
     def action_dummy(self, cr, uid, ids, context=None):
         for item in self.browse(cr, uid, ids, context=context):

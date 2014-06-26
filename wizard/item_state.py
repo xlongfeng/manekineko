@@ -433,7 +433,7 @@ class ebay_item_sync_user(osv.TransientModel):
             ids = ebay_item_obj.search(cr, uid, domain, context=context)
             try:
                 ebay_item_obj.revise_quantity(cr, uid, ids, context=context)
-            except (ConnectionResponseError, RequestException, SSLError) as e:
+            except (ConnectionResponseError, RequestException) as e:
                 return self.pool.get('ebay.ebay').exception(cr, uid, 'Revise Item Quantity', e, context=context)
         
         return count
@@ -776,8 +776,11 @@ class ebay_item_revise(osv.TransientModel):
         if context is None:
             context = {}
         record_ids = context and context.get('active_ids', False)
-        self.pool.get('ebay.item').action_revise(cr, uid, record_ids, context=context)
-        return {'type': 'ir.actions.act_window_close'}
+        res = self.pool.get('ebay.item').action_revise(cr, uid, record_ids, context=context)
+        if res != True:
+            return res
+        else:
+            return {'type': 'ir.actions.act_window_close'}
 
 ebay_item_revise()
 
@@ -803,8 +806,11 @@ class ebay_item_end(osv.TransientModel):
         if context is None:
             context = {}
         record_ids = context and context.get('active_ids', False)
-        self.pool.get('ebay.item').action_end_listing(cr, uid, record_ids, context=context)
-        return {'type': 'ir.actions.act_window_close'}
+        res = self.pool.get('ebay.item').action_end_listing(cr, uid, record_ids, context=context)
+        if res != True:
+            return res
+        else:
+            return {'type': 'ir.actions.act_window_close'}
 
 ebay_item_end()
 
@@ -830,8 +836,11 @@ class ebay_item_upload(osv.TransientModel):
         if context is None:
             context = {}
         record_ids = context and context.get('active_ids', False)
-        self.pool.get('ebay.item').action_upload(cr, uid, record_ids, context=context)
-        return {'type': 'ir.actions.act_window_close'}
+        res = self.pool.get('ebay.item').action_upload(cr, uid, record_ids, context=context)
+        if res != True:
+            return res
+        else:
+            return {'type': 'ir.actions.act_window_close'}
 
 ebay_item_upload()
 
