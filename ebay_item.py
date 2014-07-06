@@ -1101,7 +1101,7 @@ Secondary value1 | Secondary value2 ...
         if item.bid_count > 0 or item.quantity_sold > 0:
             del item_dict['Item']['ListingDuration']
             del item_dict['Item']['PrimaryCategory']
-            del item_dict['Item']['Title']
+            #del item_dict['Item']['Title']
         return item_dict, auction
     
     def item_post_update(self, cr, uid, item, context=None):

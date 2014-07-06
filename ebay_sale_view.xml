@@ -158,8 +158,8 @@
                     <field name="cs_ebay_payment_status" invisible="1"/>
                     <field name="cs_status" invisible="1"/>
                     <field name="amount_paid"/>
-                    <field name="created_time" invisible="1"/>
-                    <field name="cancel_reason"/>
+                    <field name="shipped_time"/>
+                    <field name="cancel_reason" invisible="1"/>
                     <field name="after_service_duration"/>
                     <field name="transaction_details"/>
                 </tree>

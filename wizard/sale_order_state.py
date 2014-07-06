@@ -140,6 +140,8 @@ class ebay_sale_order_print(osv.TransientModel):
         order_lines = slip['order_lines']
         partner = slip['partner']
         shipping_service_map = {
+            'cnam': 'F3',
+            'cnram': 'F4',
             'hkam': 'B4',
             'hkram': 'B3',
             'sgam': 'B2',
@@ -175,10 +177,12 @@ class ebay_sale_order_print(osv.TransientModel):
             #u'保险价值': '',
             #u'订单备注': '',
             u'重量': weight,
-            #u'是否退件': '',
+            u'是否退件': 'Y',
+            #u'包裹种类': 'Gift',
         }
         for i, line in enumerate(order_lines):
-            price_unit = line.price_unit if line.price_unit > 8 else 8
+            price_unit = line.price_unit * line.product_uom_qty
+            price_unit = price_unit if price_unit > 8 else 8
             declared_value = price_unit / line.product_uom_qty
             order_line = {
                 u'海关报关品名%s' % str(i+1): '%s (%d' % (line.product_id.name, line.product_uom_qty),
@@ -221,6 +225,7 @@ class ebay_sale_order_print(osv.TransientModel):
             u'订单备注',
             u'重量',
             u'是否退件',
+            #u'包裹种类',
             u'海关报关品名1', u'配货信息1', u'申报价值1', u'申报品数量1', u'配货备注1',
             u'海关报关品名2', u'配货信息2', u'申报价值2', u'申报品数量2', u'配货备注2',
             u'海关报关品名3', u'配货信息3', u'申报价值3', u'申报品数量3', u'配货备注3',
