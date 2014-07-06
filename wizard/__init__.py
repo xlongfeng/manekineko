@@ -19,6 +19,7 @@
 #
 ##############################################################################
 
+import export_order
 import get_order
 import item_state
 import sale_order_state
