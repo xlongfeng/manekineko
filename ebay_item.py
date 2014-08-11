@@ -1112,7 +1112,8 @@ Secondary value1 | Secondary value2 ...
             eps_picture = item.eps_picture_ids
             if eps_picture:
                 for picture in eps_picture:
-                    picture.write(dict(use_by_date=(datetime.now() + timedelta(90))))
+                    if picture.full_url:
+                        picture.write(dict(use_by_date=(datetime.now() + timedelta(90))))
         
         item.refresh()
         eps_picture_extend_use_by_date(item)
@@ -1416,6 +1417,14 @@ Secondary value1 | Secondary value2 ...
                     self.item_post_update(cr, uid, item, context=context)
         except (ConnectionError, ConnectionResponseError, RequestException) as e:
             return self.pool.get('ebay.ebay').exception(cr, uid, 'Revise Item', e, context=context)
+        
+        return True
+    
+    def action_revise_quantity(self, cr, uid, ids, context=None):
+        try:
+            self.revise_quantity(cr, uid, ids, context=context)
+        except (ConnectionResponseError, RequestException) as e:
+            return self.pool.get('ebay.ebay').exception(cr, uid, 'Revise Item Quantity', e, context=context)
         
         return True
         

@@ -15,6 +15,7 @@
                         <button class="oe_highlight" name="action_upload_picture" confirm='Are you sure you want to upload pictures of this item?' string="Upload Pictures" type="object" groups="ebay.group_ebay_manager"/>
                         <button class="oe_highlight" name="action_upload" confirm='Are you sure you want to upload this item?' states="Draft,Completed,Ended" string="Upload Item" type="object" groups="ebay.group_ebay_manager"/>
                         <button class="oe_highlight" name="action_revise" confirm='Are you sure you want to revise this item?' states="Active" string="Revise" type="object" groups="ebay.group_ebay_manager"/>
+                        <button class="oe_highlight" name="action_revise_quantity" confirm='Are you sure you want to revise quantity for this item?' states="Active" string="Revise Quantity" type="object" groups="ebay.group_ebay_manager"/>
                         <button class="oe_highlight" name="action_synchronize" states="Active,Completed,Ended" string="Synchronize" type="object" groups="ebay.group_ebay_manager"/>
                         <button name="action_renew_uuid" confirm='Are you sure you want to renew uuid for this item?'  states="Completed,Ended" string="Renew UUID" type="object" groups="ebay.group_ebay_manager"/>
                         <button name="action_end_listing" confirm='Are you sure you want to end this item?' states="Active" string="End Listing" type="object" groups="ebay.group_ebay_manager"/>
