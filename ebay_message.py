@@ -472,14 +472,6 @@ class ebay_message(osv.osv):
                         raise orm.except_orm(_('Warning!'), e)
                     except exceptions.RequestException as e:
                         raise orm.except_orm(_('Warning!'), e)
-                    except exceptions.ConnectionError as e:
-                        raise orm.except_orm(_('Warning!'), e)
-                    except exceptions.HTTPError as e:
-                        raise orm.except_orm(_('Warning!'), e)
-                    except exceptions.URLRequired as e:
-                        raise orm.except_orm(_('Warning!'), e)
-                    except exceptions.TooManyRedirects as e:
-                        raise orm.except_orm(_('Warning!'), e)
                     else:
                         reply = api.response.reply
                         site_hosted_picture_details = reply.SiteHostedPictureDetails
@@ -535,14 +527,6 @@ class ebay_message(osv.osv):
             raise orm.except_orm(_('Warning!'), e)
         except exceptions.RequestException as e:
             raise orm.except_orm(_('Warning!'), e)
-        except exceptions.ConnectionError as e:
-            raise orm.except_orm(_('Warning!'), e)
-        except exceptions.HTTPError as e:
-            raise orm.except_orm(_('Warning!'), e)
-        except exceptions.URLRequired as e:
-            raise orm.except_orm(_('Warning!'), e)
-        except exceptions.TooManyRedirects as e:
-            raise orm.except_orm(_('Warning!'), e)
         else:
             return msg.write(dict(
                 last_modified_date=fields.datetime.now(),
@@ -552,6 +536,7 @@ class ebay_message(osv.osv):
     def send_after_service_message(self, cr, uid, ebay_sale_order, duration, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         user = ebay_sale_order.ebay_user_id
+        print 'send after server message', (ebay_sale_order.name, duration)
         if duration == '7':
             after_service_template = user.after_service_7_template
         elif duration == '15':
@@ -571,7 +556,7 @@ class ebay_message(osv.osv):
             shipped_time=ebay_sale_order.shipped_time,
             elapse=delta,
         )
-                
+        
         item_id = ebay_sale_order.transactions[0].item_id
         subject = 'Shipping about %s' % ebay_sale_order.transactions[0].name
         question_type = 'Shipping'
@@ -595,14 +580,6 @@ class ebay_message(osv.osv):
         except ConnectionResponseError as e:
             res = str(e)
         except exceptions.RequestException as e:
-            res = str(e)
-        except exceptions.ConnectionError as e:
-            res = str(e)
-        except exceptions.HTTPError as e:
-            res = str(e)
-        except exceptions.URLRequired as e:
-            res = str(e)
-        except exceptions.TooManyRedirects as e:
             res = str(e)
         else:
             #reply = api.response.reply

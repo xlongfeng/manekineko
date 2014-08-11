@@ -338,12 +338,15 @@ class ebay_eps_picture(osv.osv):
             vals['use_by_date'] = fields.datetime.now()
         return super(ebay_eps_picture, self).write(cr, uid, ids, vals, context=context)
     
-    def upload(self, cr, uid, ids, user, picture, context=None):
+    def upload(self, cr, uid, ids, item, picture, context=None):
         ebay_ebay_obj = self.pool.get('ebay.ebay')
         ebay_eps_picturesetmember = self.pool.get('ebay.eps.picturesetmember')
+        user = item.ebay_user_id
+        active = item.state == 'Active'
         
         now = datetime.now()
-        if not picture.use_by_date or (ebay_strptime(picture.use_by_date) - now).days < 2:
+        
+        if not picture.use_by_date or (((ebay_strptime(picture.use_by_date) - now).days < 2) and (active != True)):
             image = io.BytesIO(base64.b64decode(picture.image))
             call_data = dict()
             call_data['PictureSet'] = 'Supersize'
@@ -1127,13 +1130,13 @@ Secondary value1 | Secondary value2 ...
             user = item.ebay_user_id
             if item.eps_picture_ids:
                 for picture in item.eps_picture_ids:
-                    picture.upload(user, picture)
+                    picture.upload(item, picture)
                     
             if not item.variation_invalid and item.variation and item.child_ids:
                 for child in item.child_ids:
                     if child.eps_picture_ids:
                         for picture in child.eps_picture_ids:
-                            picture.upload(user, picture)
+                            picture.upload(item, picture)
         except ConnectionError as e:
             vals = dict()
             vals['severity_code_error'] = True
