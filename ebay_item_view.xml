@@ -15,9 +15,9 @@
                         <button class="oe_highlight" name="action_upload_picture" confirm='Are you sure you want to upload pictures of this item?' string="Upload Pictures" type="object" groups="ebay.group_ebay_manager"/>
                         <button class="oe_highlight" name="action_upload" confirm='Are you sure you want to upload this item?' states="Draft,Completed,Ended" string="Upload Item" type="object" groups="ebay.group_ebay_manager"/>
                         <button class="oe_highlight" name="action_revise" confirm='Are you sure you want to revise this item?' states="Active" string="Revise" type="object" groups="ebay.group_ebay_manager"/>
-                        <button class="oe_highlight" name="action_revise_quantity" confirm='Are you sure you want to revise quantity for this item?' states="Active" string="Revise Quantity" type="object" groups="ebay.group_ebay_manager"/>
+                        <button class="oe_highlight" name="action_revise_quantity" confirm='Are you sure you want to revise item quantity?' states="Active" string="Revise Quantity" type="object" groups="ebay.group_ebay_manager"/>
                         <button class="oe_highlight" name="action_synchronize" states="Active,Completed,Ended" string="Synchronize" type="object" groups="ebay.group_ebay_manager"/>
-                        <button name="action_renew_uuid" confirm='Are you sure you want to renew uuid for this item?'  states="Completed,Ended" string="Renew UUID" type="object" groups="ebay.group_ebay_manager"/>
+                        <button name="action_renew_uuid" confirm='Are you sure you want to renew uuid?'  states="Completed,Ended" string="Renew UUID" type="object" groups="ebay.group_ebay_manager"/>
                         <button name="action_end_listing" confirm='Are you sure you want to end this item?' states="Active" string="End Listing" type="object" groups="ebay.group_ebay_manager"/>
                         <field name="state" widget="statusbar"/>
                     </header>
@@ -65,19 +65,28 @@
                                 <field name="listing_duration" attrs="{'invisible': [('parent_id','!=',False)]}"/>
                             </group>
                         </group>
+                        <!-- variation start -->
                         <group attrs="{'invisible': [('variation_invalid','=',True)]}">
-                            <field name="variation" attrs="{'readonly': [('state','!=','Draft')]}"/>
-                            <field name="variation_modify_specific_name" attrs="{'invisible': [('variation','=',False)]}"/>
-                            <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)], 'readonly': [('state','=','Active')]}"/>
+                            <group>
+                                <field name="variation" attrs="{'readonly': [('state','!=','Draft')]}"/>
+                                <field name="variation_specific_name" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)], 'readonly': [('state','=','Active')]}"/>
+                            </group>
+                            <group>
+                                <field name="variation_modify_specific_name" attrs="{'invisible': [('variation','=',False)]}"/>
+                            </group>
+                        </group>
+                        <button class="oe_highlight" name="action_create_variations" confirm='Are you sure you want to create variations?' attrs="{'invisible': [('variation','=',False)]}" string="Create Variations" type="object" groups="ebay.group_ebay_manager"/>
+                        <group attrs="{'invisible': [('variation_invalid','=',True)]}">
                             <field name="variation_specifics_set" attrs="{'invisible': [('variation','=',False)], 'required': [('variation','=',True)], 'readonly': [('parent_id','!=',False),('state','=','Active')]}"/>
                             <!-- variation view start -->
                             <field name="child_ids" attrs="{'invisible': [('variation','=',False)]}">
-                                <tree>
+                                <tree colors="blue:state=='Draft'">
                                     <field name="variation_specifics_set" string="Value"/>
                                     <field name="start_price"/>
                                     <field name="quantity"/>
                                     <field name="quantity_surplus"/>
                                     <field name="quantity_sold"/>
+                                    <field name="state" invisible="1"/>
                                 </tree>
                                 <form string="Variation" version="7.0">
                                     <header>
@@ -143,6 +152,7 @@
                             </field>
                             <!-- variation view end -->
                         </group>
+                        <!-- variation end -->
                         <notebook colspan="4">
                             <page string="Pictures" autofocus="autofocus" style="min-height:480px">
                                 <field name="eps_picture_ids" mode="kanban">

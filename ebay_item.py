@@ -1540,6 +1540,41 @@ Secondary value1 | Secondary value2 ...
         
         return True
     
+    def action_create_variations(self, cr, uid, ids, context=None):
+        for item in self.browse(cr, uid, ids, context=context):
+            print item.variation_specifics_set
+            if item.variation_specifics_set:
+                variations = ['']
+                for specific_values in split_str(item.variation_specifics_set, '\n'):
+                    specific_values = split_str(specific_values, '|')
+                    specific_values_len = len(specific_values)
+                    if specific_values_len == 0:
+                        continue
+                    variations_len = len(variations)
+                    values = []
+                    for value in specific_values:
+                        values += [value] * variations_len
+                    variations = variations * specific_values_len
+                    for i, value in enumerate(values):
+                        variations[i] = variations[i] + value + '\n'
+                for variation in variations:
+                    domain = [('variation_specifics_set', '=', variation), ('parent_id', '=', item.id)]
+                    ids = self.search(cr, uid, domain, context=context)
+                    if ids:
+                        print variation, 'found'
+                        continue
+                    else:
+                        print variation, 'not found'
+                        vals = dict(
+                            quantity=item.quantity,
+                            start_price=item.start_price,
+                            name='[%s]' % ']['.join(split_str(variation, '\n')),
+                            variation_specifics_set=variation,
+                            parent_id=item.id,
+                        )
+                        self.create(cr, uid, vals, context=context)
+        
+        return True
         
     def variation_quantity_dict(self, cr, uid, item, child_ids=None, context=None): 
         user = item.ebay_user_id
