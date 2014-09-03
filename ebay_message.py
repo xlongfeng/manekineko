@@ -73,7 +73,7 @@ class ebay_message_synchronize(osv.TransientModel):
     _defaults = {
         'number_of_days': '2',
         'after_service_message': False,
-        'ignoe_order_before': (datetime.now() - timedelta(35)).strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT),
+        'ignoe_order_before': (datetime.now() - timedelta(45)).strftime(tools.DEFAULT_SERVER_DATETIME_FORMAT),
         'sandbox_user_included': False,
         'exception': '',
         'state': 'option'
@@ -128,14 +128,13 @@ class ebay_message_synchronize(osv.TransientModel):
             ids = ebay_sale_order_obj.search(cr, uid, domain, context=context)
             if ids:
                 for ebay_sale_order in ebay_sale_order_obj.browse(cr, uid, ids, context=context):
-                    shipped_time = datetime.strptime(ebay_sale_order.shipped_time, tools.DEFAULT_SERVER_DATETIME_FORMAT)
-                    delta = (now_time - shipped_time).days
+                    shipping_time = ebay_sale_order_obj.shipping_time(cr, uid, ebay_sale_order, context=context)
                     duration = ebay_sale_order.after_service_duration
-                    if delta > 7 and (duration == '0' or not duration):
+                    if shipping_time > 7 and (duration == '0' or not duration):
                         res = ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '7', context=context)
-                    elif delta > 15 and duration == '7':
+                    elif shipping_time > 15 and duration == '7':
                         res = ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '15', context=context)
-                    elif delta > 25 and duration == '15':
+                    elif shipping_time > 25 and duration == '15':
                         res = ebay_message_obj.send_after_service_message(cr, uid, ebay_sale_order, '25', context=context)
                     else:
                         res = True

@@ -21,6 +21,7 @@
 ##############################################################################
 from datetime import datetime, timedelta
 from openerp.tools import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT, DATETIME_FORMATS_MAP, float_compare
+from openerp import pooler, tools
 from dateutil.relativedelta import relativedelta
 from openerp.osv import fields, osv
 from openerp import netsvc
@@ -175,6 +176,12 @@ class ebay_sale_order(osv.osv):
             if sd_record_number:
                 vals['name'] = 'EOS/%s' % sd_record_number
         return super(ebay_sale_order, self).create(cr, uid, vals, context=context)
+    
+    def shipping_time(self, cr, uid, order, context=None):
+        now_time = datetime.now()
+        shipped_time = datetime.strptime(order.shipped_time, tools.DEFAULT_SERVER_DATETIME_FORMAT)
+        daygenerator = (shipped_time + timedelta(x + 1) for x in xrange((now_time - shipped_time).days))
+        return sum(1 for day in daygenerator if day.weekday() < 5)
     
     def _prepare_order(self, cr, uid, order, context=None):
         pricelist_id = self.pool.get('product.pricelist').search(cr, uid, [], context=context)[0]
